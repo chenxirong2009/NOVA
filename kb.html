@@ -968,6 +968,17 @@
       return audioCtx;
     }
 
+    // Unlock AudioContext on any user gesture (fixes "click sometimes silent until page refresh")
+    (function unlockAudioOnGesture() {
+      const tryUnlock = () => {
+        const ctx = getAudioCtx();
+        if (ctx && ctx.state === 'suspended') {
+          ctx.resume().catch(() => {});
+        }
+      };
+      ['pointerdown', 'touchstart', 'keydown', 'click'].forEach(ev => window.addEventListener(ev, tryUnlock, { passive: true }));
+    })();
+
     // Synthesize crisp British short vowel /ɒ/ (as in 'what', 'wash', 'on', 'dog') or pure phoneme fallback
     // when network audio is unavailable or to guarantee zero alphabet-name misreading.
     function playFormantVowelO(duration = 0.28) {
@@ -1139,12 +1150,17 @@
 
     function synthOne(ipa) {
       return new Promise(resolve => {
-        try {
-          const ctx = getAudioCtx();
-          if (!ctx) { resolve(); return; }
-          const spec = PHONEME_SYNTH[ipa];
-          if (!spec) { resolve(); return; }
-          const now = ctx.currentTime;
+        (async () => {
+          try {
+            const ctx = getAudioCtx();
+            if (!ctx) { resolve(); return; }
+            // Make sure the context is actually running before scheduling any sound
+            if (ctx.state === 'suspended') {
+              try { await ctx.resume(); } catch (e) {}
+            }
+            const spec = PHONEME_SYNTH[ipa];
+            if (!spec) { resolve(); return; }
+            const now = ctx.currentTime;
           const total = spec.dur + 0.05;
 
           const master = ctx.createGain();
@@ -1271,9 +1287,10 @@
             track(osc); track(osc2);
           }
           setTimeout(resolve, total * 1000 + 15);
-        } catch (e) {
-          resolve();
-        }
+          } catch (e) {
+            resolve();
+          }
+        })();
       });
     }
 
@@ -1339,6 +1356,103 @@
       }
     }
 
+    // ==================== HUMAN BRITISH VOICE PHONEME READER ====================
+    // Each IPA phoneme maps to a real-word / onomatopoeia trigger that the en-GB TTS voice
+    // reads as a clear human phoneme (e.g. /p/ -> "puh", /æ/ -> "aah"). This is REAL speech,
+    // not synthesized beeps. Long vowels / diphthongs get a slower rate so they sound full.
+    const PHONEME_SPEAK = {
+      // Plosives & affricates
+      '/p/': 'puh',   '/b/': 'buh',   '/t/': 'tuh',   '/d/': 'duh',
+      '/k/': 'kuh',   '/ɡ/': 'guh',   '/tʃ/': 'chuh', '/dʒ/': 'juh',
+      // Nasals & liquids
+      '/m/': 'muh',   '/n/': 'nuh',   '/ŋ/': 'ung',   '/ŋk/': 'unk',
+      '/l/': 'luh',   '/r/': 'ruh',
+      // Fricatives & glides
+      '/f/': 'fuh',   '/v/': 'vuh',   '/θ/': 'thuh',  '/ð/': 'the',
+      '/s/': 'suh',   '/z/': 'zuh',   '/ʃ/': 'shuh',  '/ʒ/': 'zhuh',
+      '/h/': 'huh',   '/w/': 'wuh',   '/j/': 'yuh',   '/ks/': 'kss',
+      '/kw/': 'kwuh',
+      // Consonant blends
+      '/bl/': 'bluh', '/br/': 'bruh', '/kl/': 'kluh', '/kr/': 'kruh',
+      '/dr/': 'druh', '/fl/': 'fluh', '/fr/': 'fruh', '/ɡl/': 'gluh',
+      '/ɡr/': 'gruh', '/pl/': 'pluh', '/pr/': 'pruh', '/sk/': 'skuh',
+      '/sl/': 'sluh', '/sm/': 'smuh', '/sn/': 'snuh', '/sp/': 'spuh',
+      '/st/': 'stuh', '/sw/': 'swuh', '/tr/': 'truh', '/tw/': 'twuh',
+      '/nd/': 'und',  '/nt/': 'unt',
+      // Short vowels
+      '/ɪ/': 'ih',    '/e/': 'eh',    '/æ/': 'aah',   '/ɒ/': 'aw',
+      '/ʊ/': 'oo',    '/ʌ/': 'uh',    '/ə/': 'uh',    '/i/': 'ee',
+      '/wʌ/': 'wun',
+      // Long vowels & diphthongs
+      '/iː/': 'ee',   '/ɑː/': 'ah',   '/ɔː/': 'aw',   '/ɔːl/': 'all',
+      '/uː/': 'oo',   '/ɜː/': 'er',   '/eɪ/': 'ay',   '/aɪ/': 'eye',
+      '/ɔɪ/': 'oy',   '/əʊ/': 'oh',   '/aʊ/': 'ow',   '/aʊə/': 'our',
+      '/ɪə/': 'ear',  '/eə/': 'air',  '/juː/': 'you',
+      // Special multi-phoneme items
+      '/əʊˈkeɪ/':   'okay',
+      '/tiː/':      'tee',
+      '/ˌtiːˈviː/': 'TV',
+      '/aɪm/':      "I'm",
+      '/ˈɪznt/':    "isn't"
+    };
+
+    // Rate map: long vowels & diphthongs slower (full, sustained); short vowels & consonants natural.
+    const PHONEME_RATE = {
+      '/p/': 1.0, '/b/': 1.0, '/t/': 1.0, '/d/': 1.0, '/k/': 1.0, '/ɡ/': 1.0,
+      '/tʃ/': 0.95, '/dʒ/': 0.95,
+      '/m/': 1.0, '/n/': 1.0, '/ŋ/': 0.95, '/ŋk/': 0.95, '/l/': 1.0, '/r/': 1.0,
+      '/f/': 1.0, '/v/': 1.0, '/θ/': 0.95, '/ð/': 0.95, '/s/': 1.0, '/z/': 1.0,
+      '/ʃ/': 0.95, '/ʒ/': 0.95, '/h/': 1.0, '/w/': 1.0, '/j/': 1.0,
+      '/ks/': 0.95, '/kw/': 0.95,
+      '/bl/': 0.95, '/br/': 0.95, '/kl/': 0.95, '/kr/': 0.95, '/dr/': 0.95,
+      '/fl/': 0.95, '/fr/': 0.95, '/ɡl/': 0.95, '/ɡr/': 0.95, '/pl/': 0.95,
+      '/pr/': 0.95, '/sk/': 0.95, '/sl/': 0.95, '/sm/': 0.95, '/sn/': 0.95,
+      '/sp/': 0.95, '/st/': 0.95, '/sw/': 0.95, '/tr/': 0.95, '/tw/': 0.95,
+      '/nd/': 0.95, '/nt/': 0.95,
+      '/ɪ/': 1.0, '/e/': 1.0, '/æ/': 0.95, '/ɒ/': 0.95, '/ʊ/': 0.95,
+      '/ʌ/': 1.0, '/ə/': 0.95, '/i/': 0.95, '/wʌ/': 0.95,
+      '/iː/': 0.82, '/ɑː/': 0.82, '/ɔː/': 0.82, '/ɔːl/': 0.85,
+      '/uː/': 0.82, '/ɜː/': 0.85, '/eɪ/': 0.88, '/aɪ/': 0.85,
+      '/ɔɪ/': 0.88, '/əʊ/': 0.88, '/aʊ/': 0.88, '/aʊə/': 0.85,
+      '/ɪə/': 0.85, '/eə/': 0.85, '/juː/': 0.85,
+      '/əʊˈkeɪ/': 0.9, '/tiː/': 0.85, '/ˌtiːˈviː/': 0.9, '/aɪm/': 0.9, '/ˈɪznt/': 0.9
+    };
+
+    // Single-phoneme click: interrupt mode (stops any current speech first, then reads the phoneme).
+    function speakPhoneme(ipa) {
+      const text = PHONEME_SPEAK[ipa];
+      if (!text) return synthPhoneme(ipa); // last-resort local synth if no human trigger
+      return speakBrETTS(text, PHONEME_RATE[ipa] || 1.0, null);
+    }
+
+    // Slow-blend phoneme: QUEUE mode (never cancels mid-sequence, so Chrome never freezes on rapid
+    // cancel+speak; each phoneme plays to completion before the next).
+    function speakPhonemeQueued(ipa) {
+      const text = PHONEME_SPEAK[ipa];
+      if (!text) return synthPhoneme(ipa);
+      return new Promise(resolve => {
+        if (!('speechSynthesis' in window)) { resolve(); return; }
+        const u = new SpeechSynthesisUtterance(text);
+        u.lang = 'en-GB';
+        u.rate = PHONEME_RATE[ipa] || 1.0;
+        u.pitch = 1.0;
+        const ukVoice = selectBritishVoice();
+        if (ukVoice) u.voice = ukVoice;
+        let settled = false;
+        const fin = () => {
+          if (!settled) {
+            settled = true;
+            resolve();
+          }
+        };
+        u.onend = fin;
+        u.onerror = fin;
+        window.speechSynthesis.speak(u);
+        // Safety fallback so blending never stalls even if an utterance gets dropped
+        setTimeout(fin, Math.max(950, text.length * 140));
+      });
+    }
+
     function selectBritishVoice() {
       if (!('speechSynthesis' in window)) return null;
       const voices = window.speechSynthesis.getVoices() || [];
@@ -1381,26 +1495,30 @@
         };
         u.onend = done;
         u.onerror = done;
-        window.speechSynthesis.speak(u);
 
-        // Anti-silence guard: some browsers silently drop the first utterance after cancel().
-        // If we never hear onstart, re-utter once so the word/sentence ALWAYS sounds.
-        let startHeard = false;
-        u.onstart = () => { startHeard = true; };
+        // Chrome speechSynthesis bug workaround: cancel() followed by an immediate speak() can
+        // leave the engine silent until the page is refreshed. A short settle delay fixes it.
         setTimeout(() => {
-          if (!startHeard && !settled) {
-            try { window.speechSynthesis.speak(u); } catch (e) {}
-          }
-        }, 450);
+          window.speechSynthesis.speak(u);
 
-        if (maxDurationSec) {
-          activeEnvelopeTimer = setTimeout(() => {
-            window.speechSynthesis.cancel();
-            done();
-          }, Math.round(maxDurationSec * 1000));
-        } else {
-          setTimeout(done, Math.max(1600, text.length * 160));
-        }
+          // Anti-silence guard: if we never hear onstart, re-utter once so sound ALWAYS comes out
+          let startHeard = false;
+          u.onstart = () => { startHeard = true; };
+          setTimeout(() => {
+            if (!startHeard && !settled) {
+              try { window.speechSynthesis.speak(u); } catch (e) {}
+            }
+          }, 450);
+
+          if (maxDurationSec) {
+            activeEnvelopeTimer = setTimeout(() => {
+              window.speechSynthesis.cancel();
+              done();
+            }, Math.round(maxDurationSec * 1000));
+          } else {
+            setTimeout(done, Math.max(1600, text.length * 160));
+          }
+        }, 120);
       });
     }
 
@@ -1411,16 +1529,16 @@
       return speakBrETTS(text, rate, maxDurationSec);
     }
 
-    // Play a Single Phonics Block strictly by its IPA Phoneme (LOCAL synthesis, deterministic)
+    // Play a Single Phonics Block strictly by its IPA Phoneme with a HUMAN British voice
     // Mandatory Rules:
     // 1. Silent blocks ('静音') produce ZERO sound!
-    // 2. Every click of the same block sounds IDENTICAL (pure phoneme, never a letter name).
+    // 2. Every click of the same block sounds IDENTICAL (real human phoneme, never a letter name).
     // 3. Short vs Long vowels have distinct, accurate duration and vowel quality.
     async function playPhonicsToken(tokenKey, domEl = null) {
       const info = PHONEME_DICT[tokenKey];
       if (!info) return;
 
-      // Mandatory Rule I.3: Silent letters produce ZERO sound
+      // Mandatory Rule 1: Silent letters produce ZERO sound
       if (info.k === 's' || info.ipa === '静音') {
         if (domEl) {
           domEl.classList.add('ph-active');
@@ -1433,12 +1551,13 @@
       if (domEl) domEl.classList.add('ph-active');
       // Cancel any previous sound first => never overlaps, never double-plays
       stopAllSpeech();
-      await synthPhoneme(info.ipa);
+      await speakPhoneme(info.ipa);
       if (domEl) domEl.classList.remove('ph-active');
     }
 
-    // Optimized Slow Blending: LOCAL pure phonemes + 120ms clean gap -> smooth full word
-    // No network wait: each phoneme is synthesized locally, complete & crisp, then blends.
+    // Optimized Slow Blending: HUMAN British phonemes, queued back-to-back -> smooth full word
+    // Uses the speech queue (no cancel between phonemes) so Chrome never freezes; each phoneme
+    // is read out fully & clearly, then the whole word is spoken.
     async function playWordSlowBlend(wordObj, containerId) {
       activeSequenceId++;
       const seqId = activeSequenceId;
@@ -1454,7 +1573,7 @@
         const token = wordObj.b[i];
         if (token === '.' || token === '-') continue;
         if (token === ' ') {
-          await sleep(100);
+          await sleep(90);
           continue;
         }
         const currentEl = tileEls[tilePointer++];
@@ -1463,24 +1582,24 @@
         // Silent blocks produce ZERO sound and do not stall rhythm
         if (info && (info.k === 's' || info.ipa === '静音')) {
           if (currentEl) currentEl.classList.add('ph-active');
-          await sleep(90);
+          await sleep(80);
           if (currentEl) currentEl.classList.remove('ph-active');
           continue;
         }
 
         if (currentEl) currentEl.classList.add('ph-active');
-        await synthPhoneme(info ? info.ipa : `/${token}/`);
+        await speakPhonemeQueued(info ? info.ipa : `/${token}/`);
         if (currentEl) currentEl.classList.remove('ph-active');
         if (seqId !== activeSequenceId) return;
 
-        // 120ms clean gap between phonemes (crisp but not sluggish)
-        await sleep(120);
+        // Small natural gap between phonemes (crisp but not sluggish)
+        await sleep(80);
       }
 
       if (seqId !== activeSequenceId) return;
 
-      // Smoothly transition into full word reading at 1.0x Standard British English (local TTS)
-      await sleep(150);
+      // Smoothly transition into full word reading (local British TTS)
+      await sleep(120);
       if (seqId !== activeSequenceId) return;
 
       tileEls.forEach(el => el.classList.add('ph-word-glow'));
