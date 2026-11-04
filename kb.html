@@ -1563,29 +1563,98 @@
       '/ˌtiːˈviː/': ['/t/','/iː/','/v/','/iː/'],
     };
 
-    // Play a pre-recorded human phoneme via Web Audio (decoded once, played on demand).
-    // Resolves true only when the clip actually played to completion.
+    const webAudioBroken = {}; // ipa -> true once Web Audio failed for it (fast-fail next time)
+
+    // Play a pre-recorded human phoneme. Preferred path is Web Audio (decoded once, precise
+    // timing); if that engine is unavailable or fails, the SAME human recording is replayed
+    // through a cached <audio> element. A TTS/synth voice is NEVER mixed into the phoneme
+    // stream — either the human clip plays, or the clip stays silent.
     async function playPhonemeAudio(ipa, seqId) {
-      let buf = phonemeBufferCache.get(ipa);
-      if (!buf) buf = await decodePhonemeBuffer(ipa);
-      if (!buf) return false;
-      const ctx = getAudioCtx();
-      if (!ctx) return false;
-      if (ctx.state === 'suspended') { try { await ctx.resume(); } catch (e) {} }
-      if (seqId !== undefined && seqId !== activeSequenceId) return false; // cancelled
+      // Path 1: Web Audio (buffer decoded once, fast-fail if known broken)
+      if (!webAudioBroken[ipa]) {
+        let buf = phonemeBufferCache.get(ipa);
+        if (!buf) buf = await decodePhonemeBuffer(ipa);
+        if (buf) {
+          const ctx = getAudioCtx();
+          if (ctx) {
+            if (ctx.state === 'suspended') { try { await ctx.resume(); } catch (e) {} }
+            if (seqId !== undefined && seqId !== activeSequenceId) return false; // cancelled
+            const ok = await new Promise(resolve => {
+              let settled = false;
+              const fin = v => { if (!settled) { settled = true; resolve(v); } };
+              try {
+                const srcNode = ctx.createBufferSource();
+                srcNode.buffer = buf;
+                const gain = ctx.createGain();
+                gain.gain.setValueAtTime(1.0, ctx.currentTime);
+                srcNode.connect(gain);
+                gain.connect(ctx.destination);
+                activeAudioSources.add(srcNode);
+                srcNode.onended = () => {
+                  activeAudioSources.delete(srcNode);
+                  fin(seqId === undefined || seqId === activeSequenceId);
+                };
+                srcNode.start();
+                // If the context stayed suspended (silent, no onended) -> fail fast and fall back
+                setTimeout(() => fin(false), 450);
+              } catch (e) {
+                fin(false);
+              }
+            });
+            if (ok) return true;
+            webAudioBroken[ipa] = true; // this engine failed for this clip -> use <audio> next time
+            if (seqId !== undefined && seqId !== activeSequenceId) return false; // cancelled
+          }
+        }
+      }
+      // Path 2: HTMLAudio fallback with the SAME human recording (never TTS / synth)
+      return playPhonemeAudioHtml(ipa, seqId);
+    }
+
+    function playPhonemeAudioHtml(ipa, seqId) {
+      const src = PHONEME_AUDIO[ipa];
+      if (!src) return Promise.resolve(false);
       return new Promise(resolve => {
-        const srcNode = ctx.createBufferSource();
-        srcNode.buffer = buf;
-        const gain = ctx.createGain();
-        gain.gain.setValueAtTime(1.0, ctx.currentTime);
-        srcNode.connect(gain);
-        gain.connect(ctx.destination);
-        activeAudioSources.add(srcNode);
-        srcNode.onended = () => {
-          activeAudioSources.delete(srcNode);
-          resolve(seqId === undefined || seqId === activeSequenceId);
-        };
-        try { srcNode.start(); } catch (e) { resolve(false); }
+        try {
+          let a = audioElementCache.get(ipa);
+          if (!a) {
+            a = new Audio(src);
+            a.preload = 'auto';
+            audioElementCache.set(ipa, a);
+          }
+          activeHtmlAudio = a;
+          let settled = false;
+          const fin = (ok) => {
+            if (!settled) {
+              settled = true;
+              if (activeHtmlAudio === a) activeHtmlAudio = null;
+              resolve(ok);
+            }
+          };
+          a.onended = () => fin(true);
+          a.onerror = () => fin(false);
+          const start = () => {
+            if (seqId !== undefined && seqId !== activeSequenceId) { fin(false); return; }
+            const p = a.play();
+            if (p && typeof p.catch === 'function') {
+              p.catch(() => {
+                // Media not ready yet -> one retry after a tick
+                setTimeout(() => {
+                  if (seqId !== undefined && seqId !== activeSequenceId) { fin(false); return; }
+                  a.play().catch(() => fin(false));
+                }, 80);
+              });
+            }
+          };
+          if (a.readyState >= 2) start();
+          else {
+            a.oncanplay = start;
+            setTimeout(() => { if (!settled) start(); }, 200);
+          }
+          setTimeout(() => fin(false), 2000); // never stall the blend
+        } catch (e) {
+          resolve(false);
+        }
       });
     }
 
