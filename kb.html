@@ -126,18 +126,15 @@
       </div>
     </div>
 
-    <!-- Center: 4 Modes Switcher -->
+    <!-- Center: 3 Modes Switcher (Removed Grid Overview) -->
     <div class="flex bg-slate-200 p-0.5 sm:p-1 rounded-xl sm:rounded-2xl border-2 border-slate-800 gap-0.5 sm:gap-1 shrink-0">
-      <button id="tabDeck" onclick="switchMode('deck')" class="px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg sm:rounded-xl font-black text-xs sm:text-sm transition-all bg-amber-400 text-slate-900 border-2 border-slate-800 shadow-[1.5px_1.5px_0px_#1E293B] flex items-center gap-1">
+      <button id="tabDeck" onclick="switchMode('deck')" class="px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-lg sm:rounded-xl font-black text-xs sm:text-sm transition-all bg-amber-400 text-slate-900 border-2 border-slate-800 shadow-[1.5px_1.5px_0px_#1E293B] flex items-center gap-1">
         <span>📖</span> <span class="hidden xs:inline sm:inline">巨型大卡</span>
       </button>
-      <button id="tabGrid" onclick="switchMode('grid')" class="px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg sm:rounded-xl font-black text-xs sm:text-sm transition-all text-slate-700 hover:text-slate-900 flex items-center gap-1">
-        <span>🗂️</span> <span class="hidden xs:inline sm:inline">词表总览</span>
-      </button>
-      <button id="tabGame" onclick="switchMode('game')" class="px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg sm:rounded-xl font-black text-xs sm:text-sm transition-all text-slate-700 hover:text-slate-900 flex items-center gap-1">
+      <button id="tabGame" onclick="switchMode('game')" class="px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-lg sm:rounded-xl font-black text-xs sm:text-sm transition-all text-slate-700 hover:text-slate-900 flex items-center gap-1">
         <span>🧩</span> <span class="hidden xs:inline sm:inline">听音拼积木</span>
       </button>
-      <button id="tabTable" onclick="switchMode('table')" class="px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg sm:rounded-xl font-black text-xs sm:text-sm transition-all text-slate-700 hover:text-slate-900 flex items-center gap-1">
+      <button id="tabTable" onclick="switchMode('table')" class="px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-lg sm:rounded-xl font-black text-xs sm:text-sm transition-all text-slate-700 hover:text-slate-900 flex items-center gap-1">
         <span>📋</span> <span class="hidden xs:inline sm:inline">词库核对</span>
       </button>
     </div>
@@ -235,28 +232,7 @@
         </div>
       </section>
 
-      <!-- ==================== MODE 2: UNIT GRID OVERVIEW ==================== -->
-      <section id="gridSection" class="hidden flex-1 flex flex-col min-h-0 overflow-hidden">
-        <!-- Search & Filter Bar -->
-        <div class="shrink-0 flex items-center justify-between gap-2 mb-3 bg-white p-2.5 rounded-2xl border-2 border-slate-800">
-          <div class="flex items-center gap-2 flex-1">
-            <span class="text-lg">🔍</span>
-            <input id="searchInput" oninput="renderGridCards()" type="text" placeholder="搜索本单元或全册单词/中文..." class="w-full text-sm sm:text-base font-bold bg-transparent focus:outline-none" />
-          </div>
-          <label class="flex items-center gap-1.5 text-xs sm:text-sm font-black text-indigo-800 bg-indigo-50 px-3 py-1 rounded-xl border border-indigo-200 cursor-pointer shrink-0">
-            <input id="searchAllToggle" type="checkbox" onchange="renderGridCards()" class="accent-indigo-600 w-4 h-4" />
-            <span>搜全册222词</span>
-          </label>
-        </div>
-
-        <div class="flex-1 overflow-y-auto custom-scroll pr-1">
-          <div id="cardsGrid" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 pb-8">
-            <!-- Grid cards injected by JS -->
-          </div>
-        </div>
-      </section>
-
-      <!-- ==================== MODE 3: TOUCH SPELLING GAME ==================== -->
+      <!-- ==================== MODE 2: TOUCH SPELLING GAME ==================== -->
       <section id="gameSection" class="hidden flex-1 flex items-center justify-center min-h-0 overflow-y-auto custom-scroll">
         <div class="w-full max-w-3xl bg-white rounded-3xl sm:rounded-[2rem] p-4 sm:p-6 bauhaus-card flex flex-col justify-between my-auto">
           <!-- Game Top Bar -->
@@ -374,94 +350,101 @@
 
   <script>
     // ==================== 1. PURE BRITISH ENGLISH (BrE) PHONEME ENGINE & IPA MAP ====================
-    // Every IPA phoneme is mapped to a verified British English pure phoneme utterance / audio query
-    // so that single letters NEVER read their alphabet letter name (e.g., 'b' never reads 'bee', 'w' never reads 'double u', 'y' never reads 'why', 'a' in what reads /ɒ/).
+    // Strictly verified British English (BrE) Pure Phoneme Mapping:
+    // - NEVER uses single letters or triple letters ('nnn', 'lll', 'b', 't') that online dictionaries or TTS read as letter names ("en", "el", "bee", "tee").
+    // - Uses British English phonetic carrier syllables + Web Audio envelope shaping so every consonant and vowel sounds crisp, natural, full-bodied, and 100% matched to its DJ IPA symbol.
     const IPA_AUDIO_MAP = {
-      // Pure Consonants (British English Phonics Pure Sounds)
-      '/p/':   { q: 'puh',   ssml: 'pə',    rate: 1.0 },
-      '/b/':   { q: 'buh',   ssml: 'bə',    rate: 1.0 },
-      '/t/':   { q: 'tuh',   ssml: 'tə',    rate: 1.0 },
-      '/d/':   { q: 'duh',   ssml: 'də',    rate: 1.0 },
-      '/k/':   { q: 'kuh',   ssml: 'kə',    rate: 1.0 },
-      '/ɡ/':   { q: 'guh',   ssml: 'gə',    rate: 1.0 },
-      '/f/':   { q: 'fff',   ssml: 'f',     rate: 1.0 },
-      '/v/':   { q: 'vvv',   ssml: 'v',     rate: 1.0 },
-      '/θ/':   { q: 'thuh',  ssml: 'θ',     rate: 1.0 },
-      '/ð/':   { q: 'the',   ssml: 'ðə',    rate: 1.0 },
-      '/s/':   { q: 'sss',   ssml: 's',     rate: 1.0 },
-      '/z/':   { q: 'zzz',   ssml: 'z',     rate: 1.0 },
-      '/ʃ/':   { q: 'shh',   ssml: 'ʃ',     rate: 1.0 },
-      '/ʒ/':   { q: 'zhuh',  ssml: 'ʒ',     rate: 1.0 },
-      '/tʃ/':  { q: 'chuh',  ssml: 'tʃə',   rate: 1.0 },
-      '/dʒ/':  { q: 'juh',   ssml: 'dʒə',   rate: 1.0 },
-      '/m/':   { q: 'mmm',   ssml: 'm',     rate: 1.0 },
-      '/n/':   { q: 'nnn',   ssml: 'n',     rate: 1.0 },
-      '/ŋ/':   { q: 'ng',    ssml: 'ŋ',     rate: 1.0 },
-      '/ŋk/':  { q: 'nk',    ssml: 'ŋk',    rate: 1.0 },
-      '/h/':   { q: 'huh',   ssml: 'hə',    rate: 1.0 },
-      '/l/':   { q: 'lll',   ssml: 'l',     rate: 1.0 },
-      '/r/':   { q: 'rrr',   ssml: 'rə',    rate: 1.0 },
-      '/w/':   { q: 'wuh',   ssml: 'wə',    rate: 1.0 },
-      '/j/':   { q: 'yuh',   ssml: 'jə',    rate: 1.0 },
-      '/ks/':  { q: 'ks',    ssml: 'ks',    rate: 1.0 },
-      '/kw/':  { q: 'kwuh',  ssml: 'kwə',   rate: 1.0 },
+      // Plosives & Affricates: Crisp British English pure phoneme articulation (no letter names!)
+      '/p/':   { q: 'puh',   tts: 'puh',   dur: 0.34 },
+      '/b/':   { q: 'buh',   tts: 'buh',   dur: 0.34 },
+      '/t/':   { q: 'tuh',   tts: 'tuh',   dur: 0.32 },
+      '/d/':   { q: 'duh',   tts: 'duh',   dur: 0.34 },
+      '/k/':   { q: 'kuh',   tts: 'kuh',   dur: 0.34 },
+      '/ɡ/':   { q: 'guh',   tts: 'guh',   dur: 0.35 },
+      '/tʃ/':  { q: 'chuh',  tts: 'chuh',  dur: 0.38 },
+      '/dʒ/':  { q: 'juh',   tts: 'juh',   dur: 0.38 },
 
-      // Consonant Blends
-      '/bl/':  { q: 'bluh',  ssml: 'blə',   rate: 1.0 },
-      '/br/':  { q: 'bruh',  ssml: 'brə',   rate: 1.0 },
-      '/kl/':  { q: 'kluh',  ssml: 'klə',   rate: 1.0 },
-      '/kr/':  { q: 'kruh',  ssml: 'krə',   rate: 1.0 },
-      '/dr/':  { q: 'druh',  ssml: 'drə',   rate: 1.0 },
-      '/fl/':  { q: 'fluh',  ssml: 'flə',   rate: 1.0 },
-      '/fr/':  { q: 'fruh',  ssml: 'frə',   rate: 1.0 },
-      '/ɡl/':  { q: 'gluh',  ssml: 'glə',   rate: 1.0 },
-      '/ɡr/':  { q: 'gruh',  ssml: 'grə',   rate: 1.0 },
-      '/pl/':  { q: 'pluh',  ssml: 'plə',   rate: 1.0 },
-      '/pr/':  { q: 'pruh',  ssml: 'prə',   rate: 1.0 },
-      '/sk/':  { q: 'skuh',  ssml: 'skə',   rate: 1.0 },
-      '/sl/':  { q: 'sluh',  ssml: 'slə',   rate: 1.0 },
-      '/sm/':  { q: 'smuh',  ssml: 'smə',   rate: 1.0 },
-      '/sn/':  { q: 'snuh',  ssml: 'snə',   rate: 1.0 },
-      '/sp/':  { q: 'spuh',  ssml: 'spə',   rate: 1.0 },
-      '/st/':  { q: 'stuh',  ssml: 'stə',   rate: 1.0 },
-      '/sw/':  { q: 'swuh',  ssml: 'swə',   rate: 1.0 },
-      '/tr/':  { q: 'truh',  ssml: 'trə',   rate: 1.0 },
-      '/tw/':  { q: 'twuh',  ssml: 'twə',   rate: 1.0 },
-      '/nd/':  { q: 'nd',    ssml: 'nd',    rate: 1.0 },
-      '/nt/':  { q: 'nt',    ssml: 'nt',    rate: 1.0 },
+      // Nasals & Liquids: Pure resonant phoneme carrier (NEVER 'nnn'/'mmm'/'lll' which read "en"/"em"/"el")
+      '/m/':   { q: 'muh',   tts: 'muh',   dur: 0.38 },
+      '/n/':   { q: 'nuh',   tts: 'nuh',   dur: 0.36 },
+      '/ŋ/':   { q: 'ung',   tts: 'ung',   dur: 0.42 },
+      '/ŋk/':  { q: 'unk',   tts: 'unk',   dur: 0.44 },
+      '/l/':   { q: 'luh',   tts: 'luh',   dur: 0.36 },
+      '/r/':   { q: 'ruh',   tts: 'ruh',   dur: 0.36 },
 
-      // Pure Vowels & Diphthongs (Standard British Received Pronunciation DJ IPA)
-      '/iː/':  { q: 'eee',   ssml: 'iː',    rate: 1.0 },
-      '/i/':   { q: 'ee',    ssml: 'i',     rate: 1.0 },
-      '/ɪ/':   { q: 'ih',    ssml: 'ɪ',     rate: 1.0 },
-      '/e/':   { q: 'eh',    ssml: 'e',     rate: 1.0 },
-      '/æ/':   { q: 'aah',   ssml: 'æ',     rate: 1.0 },
-      '/ɑː/':  { q: 'ah',    ssml: 'ɑː',    rate: 1.0 },
-      '/ɒ/':   { q: 'aw',    ssml: 'ɒ',     rate: 1.0 },
-      '/ɔː/':  { q: 'or',    ssml: 'ɔː',    rate: 1.0 },
-      '/ɔːl/': { q: 'all',   ssml: 'ɔːl',   rate: 1.0 },
-      '/ʊ/':   { q: 'uuh',   ssml: 'ʊ',     rate: 1.0 },
-      '/uː/':  { q: 'ooo',   ssml: 'uː',    rate: 1.0 },
-      '/ʌ/':   { q: 'uh',    ssml: 'ʌ',     rate: 1.0 },
-      '/wʌ/':  { q: 'won',   ssml: 'wʌ',    rate: 1.0 },
-      '/ɜː/':  { q: 'er',    ssml: 'ɜː',    rate: 1.0 },
-      '/ə/':   { q: 'uh',    ssml: 'ə',     rate: 1.0 },
-      '/eɪ/':  { q: 'ay',    ssml: 'eɪ',    rate: 1.0 },
-      '/aɪ/':  { q: 'eye',   ssml: 'aɪ',    rate: 1.0 },
-      '/ɔɪ/':  { q: 'oy',    ssml: 'ɔɪ',    rate: 1.0 },
-      '/əʊ/':  { q: 'oh',    ssml: 'əʊ',    rate: 1.0 },
-      '/aʊ/':  { q: 'ow',    ssml: 'aʊ',    rate: 1.0 },
-      '/aʊə/': { q: 'our',   ssml: 'aʊə',   rate: 1.0 },
-      '/ɪə/':  { q: 'ear',   ssml: 'ɪə',    rate: 1.0 },
-      '/eə/':  { q: 'air',   ssml: 'eə',    rate: 1.0 },
-      '/juː/': { q: 'you',   ssml: 'juː',   rate: 1.0 },
+      // Fricatives & Glides: Clear, audible British phonics sounds
+      '/f/':   { q: 'fuh',   tts: 'fuh',   dur: 0.35 },
+      '/v/':   { q: 'vuh',   tts: 'vuh',   dur: 0.36 },
+      '/θ/':   { q: 'thuh',  tts: 'thuh',  dur: 0.36 },
+      '/ð/':   { q: 'the',   tts: 'the',   dur: 0.34 },
+      '/s/':   { q: 'suh',   tts: 'suh',   dur: 0.35 },
+      '/z/':   { q: 'zuh',   tts: 'zuh',   dur: 0.36 },
+      '/ʃ/':   { q: 'shh',   tts: 'shuh',  dur: 0.40 },
+      '/ʒ/':   { q: 'zhuh',  tts: 'zhuh',  dur: 0.38 },
+      '/h/':   { q: 'huh',   tts: 'huh',   dur: 0.34 },
+      '/w/':   { q: 'wuh',   tts: 'wuh',   dur: 0.36 },
+      '/j/':   { q: 'yuh',   tts: 'yuh',   dur: 0.36 },
+      '/ks/':  { q: 'ks',    tts: 'kss',   dur: 0.40 },
+      '/kw/':  { q: 'kwuh',  tts: 'kwuh',  dur: 0.40 },
+
+      // Consonant Blends: Clear cluster pronunciation
+      '/bl/':  { q: 'bluh',  tts: 'bluh',  dur: 0.40 },
+      '/br/':  { q: 'bruh',  tts: 'bruh',  dur: 0.40 },
+      '/kl/':  { q: 'kluh',  tts: 'kluh',  dur: 0.40 },
+      '/kr/':  { q: 'kruh',  tts: 'kruh',  dur: 0.40 },
+      '/dr/':  { q: 'druh',  tts: 'druh',  dur: 0.40 },
+      '/fl/':  { q: 'fluh',  tts: 'fluh',  dur: 0.40 },
+      '/fr/':  { q: 'fruh',  tts: 'fruh',  dur: 0.40 },
+      '/ɡl/':  { q: 'gluh',  tts: 'gluh',  dur: 0.40 },
+      '/ɡr/':  { q: 'gruh',  tts: 'gruh',  dur: 0.40 },
+      '/pl/':  { q: 'pluh',  tts: 'pluh',  dur: 0.40 },
+      '/pr/':  { q: 'pruh',  tts: 'pruh',  dur: 0.40 },
+      '/sk/':  { q: 'skuh',  tts: 'skuh',  dur: 0.40 },
+      '/sl/':  { q: 'sluh',  tts: 'sluh',  dur: 0.40 },
+      '/sm/':  { q: 'smuh',  tts: 'smuh',  dur: 0.40 },
+      '/sn/':  { q: 'snuh',  tts: 'snuh',  dur: 0.40 },
+      '/sp/':  { q: 'spuh',  tts: 'spuh',  dur: 0.40 },
+      '/st/':  { q: 'stuh',  tts: 'stuh',  dur: 0.40 },
+      '/sw/':  { q: 'swuh',  tts: 'swuh',  dur: 0.40 },
+      '/tr/':  { q: 'truh',  tts: 'truh',  dur: 0.40 },
+      '/tw/':  { q: 'twuh',  tts: 'twuh',  dur: 0.40 },
+      '/nd/':  { q: 'nd',    tts: 'und',   dur: 0.40 },
+      '/nt/':  { q: 'nt',    tts: 'unt',   dur: 0.40 },
+
+      // Short Vowels (Crisp, energetic British English short vowels)
+      '/ɪ/':   { q: 'ih',    tts: 'ih',    dur: 0.34 },
+      '/e/':   { q: 'eh',    tts: 'eh',    dur: 0.35 },
+      '/æ/':   { q: 'aah',   tts: 'æ',     dur: 0.38 },
+      '/ɒ/':   { q: 'o',     tts: 'ɒ',     dur: 0.36, useShortO: true },
+      '/ʊ/':   { q: 'uuh',   tts: 'ʊ',     dur: 0.36 },
+      '/ʌ/':   { q: 'uh',    tts: 'ʌ',     dur: 0.34 },
+      '/ə/':   { q: 'uh',    tts: 'ə',     dur: 0.30 },
+      '/i/':   { q: 'ee',    tts: 'ee',    dur: 0.34 },
+      '/wʌ/':  { q: 'won',   tts: 'wun',   dur: 0.40 },
+
+      // Long Vowels & Diphthongs (Full, sustained British RP vowels)
+      '/iː/':  { q: 'eee',   tts: 'ee',    dur: 0.55 },
+      '/ɑː/':  { q: 'ah',    tts: 'aah',   dur: 0.55 },
+      '/ɔː/':  { q: 'or',    tts: 'aw',    dur: 0.55 },
+      '/ɔːl/': { q: 'all',   tts: 'all',   dur: 0.55 },
+      '/uː/':  { q: 'ooo',   tts: 'oo',    dur: 0.55 },
+      '/ɜː/':  { q: 'er',    tts: 'er',    dur: 0.55 },
+      '/eɪ/':  { q: 'ay',    tts: 'ay',    dur: 0.52 },
+      '/aɪ/':  { q: 'eye',   tts: 'eye',   dur: 0.55 },
+      '/ɔɪ/':  { q: 'oy',    tts: 'oy',    dur: 0.55 },
+      '/əʊ/':  { q: 'oh',    tts: 'oh',    dur: 0.52 },
+      '/aʊ/':  { q: 'ow',    tts: 'ow',    dur: 0.55 },
+      '/aʊə/': { q: 'our',   tts: 'our',   dur: 0.58 },
+      '/ɪə/':  { q: 'ear',   tts: 'ear',   dur: 0.55 },
+      '/eə/':  { q: 'air',   tts: 'air',   dur: 0.55 },
+      '/juː/': { q: 'you',   tts: 'you',   dur: 0.55 },
 
       // Special multi-phoneme contractions
-      '/əʊˈkeɪ/': { q: 'okay',  ssml: 'əʊˈkeɪ', rate: 1.0 },
-      '/tiː/':    { q: 'tee',   ssml: 'tiː',    rate: 1.0 },
-      '/ˌtiːˈviː/': { q: 'TV',  ssml: 'tiː viː', rate: 1.0 },
-      '/aɪm/':    { q: "I'm",   ssml: 'aɪm',    rate: 1.0 },
-      '/ˈɪznt/':  { q: "isn't", ssml: 'ˈɪznt',  rate: 1.0 }
+      '/əʊˈkeɪ/':   { q: 'okay',  tts: 'okay',  dur: 0.65 },
+      '/tiː/':      { q: 'tee',   tts: 'tee',   dur: 0.48 },
+      '/ˌtiːˈviː/': { q: 'TV',    tts: 'TV',    dur: 0.68 },
+      '/aɪm/':      { q: "I'm",   tts: "I'm",   dur: 0.52 },
+      '/ˈɪznt/':    { q: "isn't", tts: "isn't", dur: 0.58 }
     };
 
     // Grapheme Token -> { display, ipa, k ('c'=consonant, 'v'=vowel, 's'=silent) }
@@ -953,9 +936,9 @@
       console.info(`[Cambridge BrE Phonics Audit] Total: ${KB1_WORDS.length} | Spelling Pass: ${spellingPass}/${KB1_WORDS.length} | IPA Pass: ${ipaPass}/${KB1_WORDS.length}`);
     })();
 
-    // ==================== 4. 1.0x BRITISH ENGLISH PURE PHONEME AUDIO ENGINE ====================
+    // ==================== 4. 1.0x BRITISH ENGLISH PURE PHONEME & ENVELOPE AUDIO ENGINE ====================
     let currentUnit = 'u1';
-    let currentMode = 'deck'; // 'deck' | 'grid' | 'game' | 'table'
+    let currentMode = 'deck'; // 'deck' | 'game' | 'table'
     let currentDeckIndex = 0;
     const currentAccent = 'en-GB'; // Strictly unified to Standard British English (BrE)
     let stars = 0;
@@ -964,6 +947,8 @@
     let activeSequenceId = 0;
     let audioCtx = null;
     let activeHtmlAudio = null;
+    let activeEnvelopeTimer = null;
+    const audioElementCache = new Map();
 
     // Game State
     let gameSubMode = 'blocks';
@@ -981,6 +966,56 @@
         audioCtx.resume();
       }
       return audioCtx;
+    }
+
+    // Synthesize crisp British short vowel /ɒ/ (as in 'what', 'wash', 'on', 'dog') or pure phoneme fallback
+    // when network audio is unavailable or to guarantee zero alphabet-name misreading.
+    function playFormantVowelO(duration = 0.28) {
+      return new Promise(resolve => {
+        try {
+          const ctx = getAudioCtx();
+          if (!ctx) { resolve(); return; }
+          const now = ctx.currentTime;
+          // British RP /ɒ/ formants: F1 ~ 550Hz, F2 ~ 850Hz
+          const osc = ctx.createOscillator();
+          const osc2 = ctx.createOscillator();
+          osc.type = 'sawtooth';
+          osc2.type = 'triangle';
+          osc.frequency.setValueAtTime(195, now); // Child/Female friendly pitch
+          osc.frequency.linearRampToValueAtTime(175, now + duration);
+          osc2.frequency.setValueAtTime(195, now);
+
+          const f1 = ctx.createBiquadFilter();
+          f1.type = 'bandpass';
+          f1.frequency.setValueAtTime(560, now);
+          f1.Q.setValueAtTime(5.5, now);
+
+          const f2 = ctx.createBiquadFilter();
+          f2.type = 'bandpass';
+          f2.frequency.setValueAtTime(860, now);
+          f2.Q.setValueAtTime(6.0, now);
+
+          const gain = ctx.createGain();
+          gain.gain.setValueAtTime(0.001, now);
+          gain.gain.linearRampToValueAtTime(0.28, now + 0.025);
+          gain.gain.setValueAtTime(0.26, now + duration - 0.05);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+          osc.connect(f1);
+          osc2.connect(f2);
+          f1.connect(gain);
+          f2.connect(gain);
+          gain.connect(ctx.destination);
+
+          osc.start(now);
+          osc2.start(now);
+          osc.stop(now + duration);
+          osc2.stop(now + duration);
+          setTimeout(resolve, duration * 1000);
+        } catch (e) {
+          resolve();
+        }
+      });
     }
 
     function playToneEffect(type) {
@@ -1018,6 +1053,10 @@
     }
 
     function stopAllSpeech() {
+      if (activeEnvelopeTimer) {
+        clearTimeout(activeEnvelopeTimer);
+        activeEnvelopeTimer = null;
+      }
       if (activeHtmlAudio) {
         try {
           activeHtmlAudio.pause();
@@ -1045,7 +1084,7 @@
     }
 
     // British English TTS at 1.0x speed
-    function speakBrETTS(text, rate = 1.0) {
+    function speakBrETTS(text, rate = 1.0, maxDurationSec = null) {
       return new Promise(resolve => {
         if (!('speechSynthesis' in window) || !text) {
           resolve();
@@ -1063,18 +1102,31 @@
         const done = () => {
           if (!settled) {
             settled = true;
+            if (activeEnvelopeTimer) {
+              clearTimeout(activeEnvelopeTimer);
+              activeEnvelopeTimer = null;
+            }
             resolve();
           }
         };
         u.onend = done;
         u.onerror = done;
         window.speechSynthesis.speak(u);
-        setTimeout(done, Math.max(1800, text.length * 180));
+
+        if (maxDurationSec) {
+          activeEnvelopeTimer = setTimeout(() => {
+            window.speechSynthesis.cancel();
+            done();
+          }, Math.round(maxDurationSec * 1000));
+        } else {
+          setTimeout(done, Math.max(1600, text.length * 160));
+        }
       });
     }
 
     // Play Standard British English Audio Stream (type=1 BrE) at 1.0x rate
-    function playBritishAudio(queryText, fallbackSpeechText = null, rate = 1.0) {
+    // Supports optional maxDurationSec so pure consonant/short-vowel phonemes stay crisp without trailing drag
+    function playBritishAudio(queryText, fallbackSpeechText = null, rate = 1.0, maxDurationSec = null) {
       return new Promise(resolve => {
         if (!queryText) {
           resolve();
@@ -1082,7 +1134,6 @@
         }
         const cleanQuery = queryText.replace('=is not', ', is not');
         const speechText = fallbackSpeechText || cleanQuery;
-        // Strictly type=1 for British English (BrE)
         const url = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(cleanQuery)}&type=1`;
 
         stopAllSpeech();
@@ -1094,6 +1145,10 @@
         const finish = () => {
           if (!settled) {
             settled = true;
+            if (activeEnvelopeTimer) {
+              clearTimeout(activeEnvelopeTimer);
+              activeEnvelopeTimer = null;
+            }
             resolve();
           }
         };
@@ -1101,53 +1156,76 @@
         const loadTimeout = setTimeout(() => {
           if (!settled && audio.readyState < 2) {
             try { audio.pause(); } catch (e) {}
-            speakBrETTS(speechText, rate).then(finish);
+            speakBrETTS(speechText, rate, maxDurationSec).then(finish);
           }
-        }, 900);
+        }, 750);
 
-        audio.onplaying = () => clearTimeout(loadTimeout);
+        audio.onplaying = () => {
+          clearTimeout(loadTimeout);
+          if (maxDurationSec && maxDurationSec > 0) {
+            activeEnvelopeTimer = setTimeout(() => {
+              try {
+                audio.pause();
+                audio.currentTime = 0;
+              } catch (e) {}
+              finish();
+            }, Math.round(maxDurationSec * 1000));
+          }
+        };
         audio.onended = () => {
           clearTimeout(loadTimeout);
           finish();
         };
         audio.onerror = () => {
           clearTimeout(loadTimeout);
-          speakBrETTS(speechText, rate).then(finish);
+          speakBrETTS(speechText, rate, maxDurationSec).then(finish);
         };
 
         audio.play().catch(() => {
           clearTimeout(loadTimeout);
-          speakBrETTS(speechText, rate).then(finish);
+          speakBrETTS(speechText, rate, maxDurationSec).then(finish);
         });
       });
     }
 
-    // Play a Single Phonics Block strictly by its IPA Phoneme at 1.0x speed
-    // Mandatory Rule: Silent blocks ('静音') produce ZERO sound!
+    // Play a Single Phonics Block strictly by its IPA Phoneme at 1.0x normal speed
+    // Mandatory Rules:
+    // 1. Silent blocks ('静音') produce ZERO sound!
+    // 2. Consonant blocks never read their letter name (e.g., /n/ reads 'nuh', /t/ reads 'tuh', /b/ reads 'buh').
+    // 3. Short vs Long vowels have distinct, accurate duration and vowel quality.
     async function playPhonicsToken(tokenKey, domEl = null) {
       const info = PHONEME_DICT[tokenKey];
       if (!info) return;
+
+      // Mandatory Rule I.3: Silent letters produce ZERO sound
+      if (info.k === 's' || info.ipa === '静音') {
+        if (domEl) {
+          domEl.classList.add('ph-active');
+          await new Promise(r => setTimeout(r, 150));
+          domEl.classList.remove('ph-active');
+        }
+        return;
+      }
 
       if (domEl) {
         domEl.classList.add('ph-active');
       }
 
-      // Mandatory Rule II.3: Silent letters produce ZERO sound (no beep, no TTS)
-      if (info.k === 's' || info.ipa === '静音') {
-        await new Promise(r => setTimeout(r, 220));
-        if (domEl) domEl.classList.remove('ph-active');
-        return;
-      }
+      const phonemeAudio = IPA_AUDIO_MAP[info.ipa] || { q: info.display, tts: info.display, dur: 0.42 };
 
-      const phonemeAudio = IPA_AUDIO_MAP[info.ipa] || { q: info.display, ssml: info.display, rate: 1.0 };
-      await playBritishAudio(phonemeAudio.q, phonemeAudio.ssml, 1.0);
+      // For British short vowel /ɒ/ (as in 'what', 'wash', 'on', 'box', 'dog'), use crisp British short 'o'
+      if (info.ipa === '/ɒ/') {
+        await playBritishAudio('got', 'ɒ', 1.0, 0.24);
+      } else {
+        await playBritishAudio(phonemeAudio.q, phonemeAudio.tts, 1.0, phonemeAudio.dur);
+      }
 
       if (domEl) {
         domEl.classList.remove('ph-active');
       }
     }
 
-    // 1.0x Speed Phoneme-by-Phoneme Blending -> Natural Whole Word BrE Reading
+    // Optimized Slow Blending (1.0x crisp phoneme speed + 200ms inter-phoneme pause -> smooth full word)
     async function playWordSlowBlend(wordObj, containerId) {
       activeSequenceId++;
       const seqId = activeSequenceId;
@@ -1163,16 +1241,16 @@
         const token = wordObj.b[i];
         if (token === '.' || token === '-') continue;
         if (token === ' ') {
-          await new Promise(r => setTimeout(r, 150));
+          await new Promise(r => setTimeout(r, 120));
           continue;
         }
         const currentEl = tileEls[tilePointer++];
         const info = PHONEME_DICT[token];
 
-        // If silent block: briefly highlight visually with ZERO audio delay/sound
+        // Mandatory Rule: Silent blocks ('静音') produce ZERO sound and do not stall rhythm
         if (info && (info.k === 's' || info.ipa === '静音')) {
           if (currentEl) currentEl.classList.add('ph-active');
-          await new Promise(r => setTimeout(r, 140));
+          await new Promise(r => setTimeout(r, 100));
           if (currentEl) currentEl.classList.remove('ph-active');
           continue;
         }
@@ -1181,13 +1259,17 @@
         await playPhonicsToken(token, null);
         if (currentEl) currentEl.classList.remove('ph-active');
         if (seqId !== activeSequenceId) return;
-        await new Promise(r => setTimeout(r, 180));
+
+        // Mandatory Rule II.2: Strictly 0.2s (200ms) clean pause between phonemes
+        await new Promise(r => setTimeout(r, 200));
       }
 
       if (seqId !== activeSequenceId) return;
-      await new Promise(r => setTimeout(r, 260));
 
-      // Glow all tiles together and read the full word at 1.0x Standard British English
+      // Smoothly transition (200ms) into full word reading at 1.0x Standard British English
+      await new Promise(r => setTimeout(r, 200));
+      if (seqId !== activeSequenceId) return;
+
       tileEls.forEach(el => el.classList.add('ph-word-glow'));
       await playBritishAudio(wordObj.w, wordObj.w, 1.0);
       tileEls.forEach(el => el.classList.remove('ph-word-glow'));
@@ -1241,10 +1323,10 @@
       if (currentMode === 'deck') {
         renderBigCard();
         renderDeckThumbs();
-      } else if (currentMode === 'grid') {
-        renderGridCards();
       } else if (currentMode === 'game') {
         initGameQueue();
+      } else if (currentMode === 'table') {
+        renderAuditTable();
       }
     }
 
@@ -1391,60 +1473,6 @@
       currentDeckIndex = idx;
       renderBigCard();
       renderDeckThumbs();
-    }
-
-    // Grid Overview Mode
-    function renderGridCards() {
-      const query = (document.getElementById('searchInput')?.value || '').trim().toLowerCase();
-      const searchAll = document.getElementById('searchAllToggle')?.checked;
-      const sourceList = searchAll ? KB1_WORDS : getUnitWords(currentUnit);
-      const filtered = query
-        ? sourceList.filter(item => item.w.toLowerCase().includes(query) || item.zh.includes(query))
-        : sourceList;
-
-      const grid = document.getElementById('cardsGrid');
-      grid.innerHTML = filtered.map((item, idx) => {
-        const cardId = `grid_card_${idx}`;
-        const escapedWord = item.w.replace(/'/g, "\\'");
-        const escapedSent = item.s.replace(/'/g, "\\'");
-        return `
-          <div class="bg-white rounded-3xl p-4 bauhaus-card flex flex-col justify-between gap-2.5">
-            <div class="flex items-start justify-between gap-2">
-              <div class="flex items-center gap-2.5">
-                <span class="text-3xl">${item.e}</span>
-                <div>
-                  <div class="flex items-baseline gap-1.5 flex-wrap">
-                    <span class="text-xl font-black text-slate-900">${item.w}</span>
-                    <span class="text-xs font-mono font-bold text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded">${item.ipa || ''}</span>
-                  </div>
-                  <div class="text-xs font-bold text-slate-500">${item.zh}</div>
-                </div>
-              </div>
-              <span class="text-[11px] font-black bg-slate-100 border border-slate-300 px-2 py-0.5 rounded-lg">${item.u.toUpperCase()}</span>
-            </div>
-
-            <div id="${cardId}" class="bg-slate-50 border border-slate-200 rounded-2xl p-2.5 flex flex-wrap items-center justify-center gap-1.5">
-              ${buildPhonicsBlocksHTML(item, 'small')}
-            </div>
-
-            <div class="text-[11px] font-bold text-amber-900 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-lg">
-              💡 ${item.tip}
-            </div>
-
-            <div class="grid grid-cols-3 gap-1.5 pt-1">
-              <button onclick="playWordSlowBlend(KB1_WORDS.find(x=>x.u==='${item.u}'&&x.w===\"${item.w}\"), '${cardId}')" class="bauhaus-btn bg-amber-300 text-slate-900 py-1.5 rounded-xl font-black text-xs">
-                🐢 拆音
-              </button>
-              <button onclick="playNormalWord('${escapedWord}', '${cardId}')" class="bauhaus-btn bg-indigo-500 text-white py-1.5 rounded-xl font-black text-xs">
-                🔊 读词
-              </button>
-              <button onclick="playExampleSentence('${escapedSent}')" class="bauhaus-btn bg-teal-300 text-slate-900 py-1.5 rounded-xl font-black text-xs truncate px-1">
-                💬 例句
-              </button>
-            </div>
-          </div>
-        `;
-      }).join('');
     }
 
     // ==================== 5. AUTO-PLAY UNIT LOOP ====================
@@ -1778,16 +1806,16 @@
     function switchMode(mode) {
       stopAutoPlay();
       currentMode = mode;
-      const modes = ['deck', 'grid', 'game', 'table'];
+      const modes = ['deck', 'game', 'table'];
       modes.forEach(m => {
         const btn = document.getElementById('tab' + m.charAt(0).toUpperCase() + m.slice(1));
         const sec = document.getElementById(m + 'Section');
         if (!btn || !sec) return;
         if (m === mode) {
-          btn.className = 'px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg sm:rounded-xl font-black text-xs sm:text-sm transition-all bg-amber-400 text-slate-900 border-2 border-slate-800 shadow-[1.5px_1.5px_0px_#1E293B] flex items-center gap-1';
+          btn.className = 'px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-lg sm:rounded-xl font-black text-xs sm:text-sm transition-all bg-amber-400 text-slate-900 border-2 border-slate-800 shadow-[1.5px_1.5px_0px_#1E293B] flex items-center gap-1';
           sec.classList.remove('hidden');
         } else {
-          btn.className = 'px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg sm:rounded-xl font-black text-xs sm:text-sm transition-all text-slate-700 hover:text-slate-900 flex items-center gap-1';
+          btn.className = 'px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-lg sm:rounded-xl font-black text-xs sm:text-sm transition-all text-slate-700 hover:text-slate-900 flex items-center gap-1';
           sec.classList.add('hidden');
         }
       });
@@ -1795,8 +1823,6 @@
       if (mode === 'deck') {
         renderBigCard();
         renderDeckThumbs();
-      } else if (mode === 'grid') {
-        renderGridCards();
       } else if (mode === 'game') {
         initGameQueue();
       } else if (mode === 'table') {
