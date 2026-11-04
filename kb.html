@@ -951,6 +951,51 @@
     let activeEnvelopeTimer = null;
     const audioElementCache = new Map();
 
+    // ============ REAL HUMAN PHONEME AUDIO — Web Audio playback ============
+    // The 48 standard phoneme recordings are decoded ONCE into AudioBuffers and played
+    // through Web Audio nodes. This is fully deterministic: no speech-engine silence,
+    // no decode races on rapid clicks, and sub-phoneme gaps can be near zero.
+    const phonemeBufferCache = new Map();   // ipa -> AudioBuffer
+    const activeAudioSources = new Set();   // live BufferSource nodes (stopped by stopAllSpeech)
+    let phonemeWarmupPromise = null;
+
+    function dataUriToArrayBuffer(uri) {
+      const b64 = uri.slice(uri.indexOf(',') + 1);
+      const bin = atob(b64);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      return bytes.buffer;
+    }
+
+    async function decodePhonemeBuffer(ipa) {
+      if (phonemeBufferCache.has(ipa)) return phonemeBufferCache.get(ipa);
+      const src = PHONEME_AUDIO[ipa];
+      if (!src) return null;
+      const ctx = getAudioCtx();
+      if (!ctx) return null;
+      try {
+        const buf = await ctx.decodeAudioData(dataUriToArrayBuffer(src));
+        phonemeBufferCache.set(ipa, buf);
+        return buf;
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function warmupPhonemeAudio() {
+      if (!phonemeWarmupPromise) {
+        phonemeWarmupPromise = Promise.all(
+          Object.keys(PHONEME_AUDIO).map(ipa => decodePhonemeBuffer(ipa).catch(() => null))
+        ).catch(() => {});
+      }
+      return phonemeWarmupPromise;
+    }
+
+    function stopAllAudioSources() {
+      activeAudioSources.forEach(s => { try { s.stop(); } catch (e) {} });
+      activeAudioSources.clear();
+    }
+
     // Game State
     let gameSubMode = 'blocks';
     let gameQueue = [];
@@ -976,6 +1021,7 @@
         if (ctx && ctx.state === 'suspended') {
           ctx.resume().catch(() => {});
         }
+        warmupPhonemeAudio(); // pre-decode all real phonemes on the first user gesture
       };
       ['pointerdown', 'touchstart', 'keydown', 'click'].forEach(ev => window.addEventListener(ev, tryUnlock, { passive: true }));
     })();
@@ -1353,6 +1399,7 @@
         activeHtmlAudio = null;
       }
       stopSynth();
+      stopAllAudioSources();
       if ('speechSynthesis' in window) {
         window.speechSynthesis.cancel();
       }
@@ -1516,30 +1563,29 @@
       '/ˌtiːˈviː/': ['/t/','/iː/','/v/','/iː/'],
     };
 
-    // Play a pre-recorded human phoneme audio if available. Resolves true when it actually played.
-    function playPhonemeAudio(ipa) {
-      const src = PHONEME_AUDIO[ipa];
-      if (!src) return Promise.resolve(false);
+    // Play a pre-recorded human phoneme via Web Audio (decoded once, played on demand).
+    // Resolves true only when the clip actually played to completion.
+    async function playPhonemeAudio(ipa, seqId) {
+      let buf = phonemeBufferCache.get(ipa);
+      if (!buf) buf = await decodePhonemeBuffer(ipa);
+      if (!buf) return false;
+      const ctx = getAudioCtx();
+      if (!ctx) return false;
+      if (ctx.state === 'suspended') { try { await ctx.resume(); } catch (e) {} }
+      if (seqId !== undefined && seqId !== activeSequenceId) return false; // cancelled
       return new Promise(resolve => {
-        try {
-          stopSynth();
-          const a = new Audio(src);
-          activeHtmlAudio = a;
-          let settled = false;
-          const fin = (ok) => {
-            if (!settled) {
-              settled = true;
-              if (activeHtmlAudio === a) activeHtmlAudio = null;
-              resolve(ok);
-            }
-          };
-          a.onended = () => fin(true);
-          a.onerror = () => fin(false);
-          a.onpause = () => fin(false); // stopAllSpeech interrupted this clip -> resolve so blending never stalls
-          a.play().then(() => {}, () => fin(false));
-        } catch (e) {
-          resolve(false);
-        }
+        const srcNode = ctx.createBufferSource();
+        srcNode.buffer = buf;
+        const gain = ctx.createGain();
+        gain.gain.setValueAtTime(1.0, ctx.currentTime);
+        srcNode.connect(gain);
+        gain.connect(ctx.destination);
+        activeAudioSources.add(srcNode);
+        srcNode.onended = () => {
+          activeAudioSources.delete(srcNode);
+          resolve(seqId === undefined || seqId === activeSequenceId);
+        };
+        try { srcNode.start(); } catch (e) { resolve(false); }
       });
     }
 
@@ -1553,13 +1599,10 @@
       let played = false;
       for (const sub of parts) {
         if (seqId !== undefined && seqId !== activeSequenceId) return played;
-        const ok = await playPhonemeAudio(sub);
+        const ok = await playPhonemeAudio(sub, seqId);
         if (ok) played = true;
-        else {
-          const text = PHONEME_SPEAK[sub];
-          if (text) { await speakBrETTS(text, PHONEME_RATE[sub] || 1.0, null); played = true; }
-          else { await synthPhoneme(sub); played = true; }
-        }
+        // Never fall back to TTS for a sub-phoneme: a cancelled/failed sub stays silent
+        // rather than mixing a machine voice into the real phoneme stream.
         if (seqId !== undefined && seqId !== activeSequenceId) return played;
         await sleep(20); // near-zero gap between sub-phonemes -> real blending feel
       }
@@ -1569,6 +1612,7 @@
     // Single-phoneme click: real audio first -> human TTS -> local synth (last resort)
     async function speakPhoneme(ipa, seqId) {
       if (await playPhonemeSequence(ipa, seqId)) return;
+      if (seqId !== undefined && seqId !== activeSequenceId) return; // cancelled -> stay silent
       const text = PHONEME_SPEAK[ipa];
       if (text) return speakBrETTS(text, PHONEME_RATE[ipa] || 1.0, null);
       return synthPhoneme(ipa); // last-resort local synth if no human trigger
@@ -1579,6 +1623,7 @@
     // each phoneme plays to completion before the next.
     async function speakPhonemeQueued(ipa, seqId) {
       if (await playPhonemeSequence(ipa, seqId)) return;
+      if (seqId !== undefined && seqId !== activeSequenceId) return; // cancelled -> stay silent
       const text = PHONEME_SPEAK[ipa];
       if (!text) return synthPhoneme(ipa);
       return new Promise(resolve => {
@@ -1657,7 +1702,17 @@
           u.onstart = () => { startHeard = true; };
           setTimeout(() => {
             if (!startHeard && !settled) {
-              try { window.speechSynthesis.speak(u); } catch (e) {}
+              try {
+                // Chrome ignores re-speaking the same utterance; always create a fresh one
+                const u2 = new SpeechSynthesisUtterance(text);
+                u2.lang = 'en-GB';
+                u2.rate = rate;
+                u2.pitch = 1.0;
+                if (ukVoice) u2.voice = ukVoice;
+                u2.onend = done;
+                u2.onerror = done;
+                window.speechSynthesis.speak(u2);
+              } catch (e) {}
             }
           }, 450);
 
@@ -1720,33 +1775,37 @@
       const tileEls = container ? Array.from(container.querySelectorAll('[data-ph-idx]')) : [];
       tileEls.forEach(el => el.classList.remove('ph-active', 'ph-word-glow'));
 
-      let tilePointer = 0;
-      for (let i = 0; i < wordObj.b.length; i++) {
-        if (seqId !== activeSequenceId) return;
-        const token = wordObj.b[i];
-        if (token === '.' || token === '-') continue;
-        if (token === ' ') {
-          await sleep(40);
-          continue;
-        }
-        const currentEl = tileEls[tilePointer++];
-        const info = PHONEME_DICT[token];
+      try {
+        let tilePointer = 0;
+        for (let i = 0; i < wordObj.b.length; i++) {
+          if (seqId !== activeSequenceId) return;
+          const token = wordObj.b[i];
+          if (token === '.' || token === '-') continue;
+          if (token === ' ') {
+            await sleep(40);
+            continue;
+          }
+          const currentEl = tileEls[tilePointer++];
+          const info = PHONEME_DICT[token];
 
-        // Silent blocks produce ZERO sound and do not stall rhythm
-        if (info && (info.k === 's' || info.ipa === '静音')) {
+          // Silent blocks produce ZERO sound and do not stall rhythm
+          if (info && (info.k === 's' || info.ipa === '静音')) {
+            if (currentEl) currentEl.classList.add('ph-active');
+            await sleep(70);
+            if (currentEl) currentEl.classList.remove('ph-active');
+            continue;
+          }
+
           if (currentEl) currentEl.classList.add('ph-active');
-          await sleep(70);
+          await speakPhonemeQueued(info ? info.ipa : `/${token}/`, seqId);
           if (currentEl) currentEl.classList.remove('ph-active');
-          continue;
+          if (seqId !== activeSequenceId) return;
+
+          // Tiny natural gap between phonemes (crisp, continuous blending)
+          await sleep(10);
         }
-
-        if (currentEl) currentEl.classList.add('ph-active');
-        await speakPhonemeQueued(info ? info.ipa : `/${token}/`, seqId);
-        if (currentEl) currentEl.classList.remove('ph-active');
-        if (seqId !== activeSequenceId) return;
-
-        // Tiny natural gap between phonemes (crisp, continuous blending)
-        await sleep(10);
+      } catch (e) {
+        // A single bad tile must never kill slow-blend or unit auto-play: keep going.
       }
 
       if (seqId !== activeSequenceId) return;
@@ -1756,7 +1815,7 @@
       if (seqId !== activeSequenceId) return;
 
       tileEls.forEach(el => el.classList.add('ph-word-glow'));
-      await playBritishAudio(wordObj.w, wordObj.w, 0.95);
+      try { await playBritishAudio(wordObj.w, wordObj.w, 0.95); } catch (e) {}
       tileEls.forEach(el => el.classList.remove('ph-word-glow'));
     }
 
