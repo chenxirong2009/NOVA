@@ -957,6 +957,7 @@
     // through Web Audio nodes. This is fully deterministic: no speech-engine silence,
     // no decode races on rapid clicks, and sub-phoneme gaps can be near zero.
     const phonemeBufferCache = new Map();   // ipa -> AudioBuffer
+    const phonemePeakCache = new Map();     // ipa -> peak amplitude (for loudness normalisation)
     const activeAudioSources = new Set();   // live BufferSource nodes (stopped by stopAllSpeech)
     let phonemeWarmupPromise = null;
 
@@ -977,6 +978,15 @@
       try {
         const buf = await ctx.decodeAudioData(dataUriToArrayBuffer(src));
         phonemeBufferCache.set(ipa, buf);
+        // Measure the clip's true peak once, so every phoneme can be played at the same
+        // loudness regardless of how the original recording was mastered.
+        const d = buf.getChannelData(0);
+        let pk = 0;
+        for (let i = 0; i < d.length; i += 3) {
+          const v = Math.abs(d[i]);
+          if (v > pk) pk = v;
+        }
+        phonemePeakCache.set(ipa, Math.max(pk, 0.02));
         return buf;
       } catch (e) {
         return null;
@@ -1041,6 +1051,10 @@
       };
       ['pointerdown', 'touchstart', 'keydown', 'click'].forEach(ev => window.addEventListener(ev, tryUnlock, { passive: true }));
     })();
+
+    // Decode all real phonemes as soon as the page loads (async, non-blocking), so the very
+    // first tap plays instantly instead of waiting for warm-up inside a gesture.
+    warmupPhonemeAudio();
 
     // Synthesize crisp British short vowel /ɒ/ (as in 'what', 'wash', 'on', 'dog') or pure phoneme fallback
     // when network audio is unavailable or to guarantee zero alphabet-name misreading.
@@ -1570,7 +1584,6 @@
       '/tw/': ['/t/','/w/'],
       '/wʌ/': ['/w/','/ʌ/'],
       '/ŋk/': ['/ŋ/','/k/'],
-      '/ɔːl/': ['/ɔː/','/l/'],
       '/əʊˈkeɪ/': ['/əʊ/','/k/','/eɪ/'],
       '/ɡl/': ['/ɡ/','/l/'],
       '/ɡr/': ['/ɡ/','/r/'],
@@ -1602,7 +1615,10 @@
                 const srcNode = ctx.createBufferSource();
                 srcNode.buffer = buf;
                 const gain = ctx.createGain();
-                gain.gain.setValueAtTime(1.0, ctx.currentTime);
+                // Loudness normalisation: loud clips are attenuated, soft clips are boosted.
+                const peak = phonemePeakCache.get(ipa) || 0.85;
+                const vol = Math.min(3.0, Math.max(0.6, 0.85 / peak));
+                gain.gain.setValueAtTime(vol, ctx.currentTime);
                 srcNode.connect(gain);
                 gain.connect(ctx.destination);
                 activeAudioSources.add(srcNode);
@@ -1618,7 +1634,10 @@
                 setTimeout(() => {
                   if (!settled) {
                     activeAudioSources.delete(srcNode);
-                    fin(seqId !== undefined && seqId !== activeSequenceId ? false : ctx.state === 'running');
+                    // Treat the clip as played once it has run for its full duration. iOS may
+                    // report 'suspended' right after playback (power saving) even though the
+                    // sound was heard; judging that as failure causes silence or a double-read.
+                    fin(seqId !== undefined && seqId !== activeSequenceId ? false : true);
                   }
                 }, durMs + 150);
               } catch (e) {
@@ -1646,6 +1665,8 @@
             a.preload = 'auto';
             audioElementCache.set(ipa, a);
           }
+          const pk = phonemePeakCache.get(ipa) || 0.85;
+          a.volume = Math.min(1, Math.max(0.55, 0.85 / pk));
           activeHtmlAudio = a;
           let settled = false;
           const fin = (ok) => {
@@ -1698,7 +1719,7 @@
         // Never fall back to TTS for a sub-phoneme: a cancelled/failed sub stays silent
         // rather than mixing a machine voice into the real phoneme stream.
         if (seqId !== undefined && seqId !== activeSequenceId) return played;
-        await sleep(20); // near-zero gap between sub-phonemes -> real blending feel
+        await sleep(0); // ZERO gap between sub-phonemes -> composite like /ɔːl/ blends into one sound
       }
       return played;
     }
@@ -1793,23 +1814,9 @@
           window.speechSynthesis.speak(u);
 
           // Anti-silence guard: if we never hear onstart, re-utter once so sound ALWAYS comes out
-          let startHeard = false;
-          u.onstart = () => { startHeard = true; };
-          setTimeout(() => {
-            if (!startHeard && !settled) {
-              try {
-                // Chrome ignores re-speaking the same utterance; always create a fresh one
-                const u2 = new SpeechSynthesisUtterance(text);
-                u2.lang = 'en-GB';
-                u2.rate = rate;
-                u2.pitch = 1.0;
-                if (ukVoice) u2.voice = ukVoice;
-                u2.onend = done;
-                u2.onerror = done;
-                window.speechSynthesis.speak(u2);
-              } catch (e) {}
-            }
-          }, 450);
+          // NOTE: no re-speak guard. Without cancel() the Chrome silence bug no longer
+          // occurs, and iOS fires onstart late — re-speaking would double the whole word.
+          u.onstart = () => {};
 
           if (maxDurationSec) {
             activeEnvelopeTimer = setTimeout(() => {
@@ -2051,7 +2058,6 @@
         <!-- Interactive Phonics Blocks Stage -->
         <div class="bg-slate-50/90 border-2 border-slate-200 rounded-2xl sm:rounded-3xl p-3 sm:p-5 my-1 flex flex-col items-center justify-center">
           <div class="text-[11px] sm:text-xs font-bold text-slate-500 mb-2.5">
-            👇 点击色块：按下方英式 DJ 音标发纯音素（静音块不发声）；点【🐢 慢速拼读】1.0倍速依次拼读
           </div>
           <div id="bigCardBlocks" class="flex flex-wrap items-center justify-center gap-2 sm:gap-3">
             ${buildPhonicsBlocksHTML(item, 'large')}
