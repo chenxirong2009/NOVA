@@ -591,6 +591,7 @@
       'ou_ou':    { display: 'ou',  ipa: '/əʊ/',  k: 'v' },
       'our_or':   { display: 'our', ipa: '/ɔː/',  k: 'v' },
       'our_schwa':{ display: 'our', ipa: '/ə/',   k: 'v' },
+    'our_v':    { display: 'our', ipa: '/ər/',  k: 'v' },
       'our':      { display: 'our', ipa: '/aʊə/', k: 'v' },
       'ow_au':    { display: 'ow',  ipa: '/aʊ/',  k: 'v' },
       'ow_ou':    { display: 'ow',  ipa: '/əʊ/',  k: 'v' },
@@ -621,6 +622,7 @@
       'gh_s':     { display: 'gh',  ipa: '静音', k: 's' },
       'l_s':      { display: 'l',   ipa: '静音', k: 's' },
       't_s':      { display: 't',   ipa: '静音', k: 's' },
+    'd_s':      { display: 'd',   ipa: '静音', k: 's' },
       'w_s':      { display: 'w',   ipa: '静音', k: 's' },
       'o_s':      { display: 'o',   ipa: '静音', k: 's' }
     };
@@ -700,7 +702,7 @@
       { u:'u2', w:'open', ipa:'/ˈəʊpən/', zh:'打开', e:'📖', b:['o_ou','.','p','e_schwa','n'], tip:'开音节 o 发 /əʊ/ + 弱读音节 pen (/pən/)', s:'Open your books.' },
 
       // ==================== UNIT 3: Favourite toys (29 items) ====================
-      { u:'u3', w:'favourite', ipa:'/ˈfeɪvərɪt/', zh:'最喜欢的', e:'⭐', b:['f','a_ei','.','v','our_schwa','.','i','t','e_s'], tip:'开音节 fa (/feɪ/) + vour (/və/) + rite (/rɪt/，词尾 e 静音)', s:"What's your favourite toy?" },
+      { u:'u3', w:'favourite', ipa:'/ˈfeɪvərɪt/', zh:'最喜欢的', e:'⭐', b:['f','a_ei','.','v','our_v','.','i','t','e_s'], tip:'开音节 fa (/feɪ/) + vour (/və/) + rite (/rɪt/，词尾 e 静音)', s:"What's your favourite toy?" },
       { u:'u3', w:'toy', ipa:'/tɔɪ/', zh:'玩具', e:'🧸', b:['t','oy'], tip:'t /t/ + 元音组合 oy 在词尾发双元音 /ɔɪ/', s:'My favourite toy is a doll.' },
       { u:'u3', w:'ball', ipa:'/bɔːl/', zh:'球', e:'⚽', b:['b','all'], tip:'b /b/ + all 组合整体发 /ɔːl/', s:'Where is your ball?' },
       { u:'u3', w:'football', ipa:'/ˈfʊtbɔːl/', zh:'足球', e:'🥅', b:['f','oo_short','t','.','b','all'], tip:'合成词：foot (oo 发短音 /ʊ/) + ball (/bɔːl/)', s:"Let's play football." },
@@ -736,8 +738,8 @@
       { u:'u4', w:'sister', ipa:'/ˈsɪstə/', zh:'姐妹', e:'👧', b:['s','i','s','.','t','er'], tip:'闭音节 sis (/sɪs/) + ter (/tə/)', s:"She's my sister." },
       { u:'u4', w:'father', ipa:'/ˈfɑːðə/', zh:'父亲，爸爸', e:'👨', b:['f','a_ar','.','th_v','er'], tip:'f + a (英音发长音 /ɑː/) + 浊咬舌音 th /ð/ + er /ə/', s:"He's my father." },
       { u:'u4', w:'mother', ipa:'/ˈmʌðə/', zh:'母亲，妈妈', e:'👩', b:['m','o_u','th_v','.','er'], tip:'m + o (在 th 前发 /ʌ/) + 浊咬舌音 th /ð/ + er /ə/', s:"She's my mother." },
-      { u:'u4', w:'grandfather', ipa:'/ˈɡrænfɑːðə/', zh:'祖父，爷爷', e:'👴', b:['gr','a','nd','.','f','a_ar','.','th_v','er'], tip:'合成词：grand (/ɡrænd/) + father (/ˈfɑːðə/)', s:"He's my grandfather." },
-      { u:'u4', w:'grandmother', ipa:'/ˈɡrænmʌðə/', zh:'祖母，奶奶', e:'👵', b:['gr','a','nd','.','m','o_u','th_v','.','er'], tip:'合成词：grand (/ɡrænd/) + mother (/ˈmʌðə/)', s:"She's my grandmother." },
+      { u:'u4', w:'grandfather', ipa:'/ˈɡrænfɑːðə/', zh:'祖父，爷爷', e:'👴', b:['gr','a','n','d_s','.','f','a_ar','.','th_v','er'], tip:'合成词：grand (/ɡrænd/) + father (/ˈfɑːðə/)', s:"He's my grandfather." },
+      { u:'u4', w:'grandmother', ipa:'/ˈɡrænmʌðə/', zh:'祖母，奶奶', e:'👵', b:['gr','a','n','d_s','.','m','o_u','th_v','.','er'], tip:'合成词：grand (/ɡrænd/) + mother (/ˈmʌðə/)', s:"She's my grandmother." },
       { u:'u4', w:'beautiful', ipa:'/ˈbjuːtɪfʊl/', zh:'美丽的', e:'👸', b:['b','eau','.','t','i','.','f','u_short','l'], tip:'三音节：beau (/bjuː/) + ti (/tɪ/) + ful (/fʊl/)', s:'She is very beautiful.' },
       { u:'u4', w:'ugly', ipa:'/ˈʌɡli/', zh:'丑陋的', e:'👹', b:['u','g','.','l','y_i'], tip:'闭音节 ug (/ʌɡ/) + ly (词尾 y 发 /i/)', s:'An ugly monster.' },
       { u:'u4', w:'happy', ipa:'/ˈhæpi/', zh:'幸福的，开心的', e:'😄', b:['h','a','pp','y_i'], tip:'闭音节 hap (/hæp/，双写 pp 发一个 /p/) + y (/i/)', s:'We are happy!' },
@@ -800,7 +802,7 @@
       { u:'u7', w:'crocodile', ipa:'/ˈkrɒkədaɪl/', zh:'鳄鱼', e:'🐊', b:['cr','o','c','.','o_schwa','.','d','i_ai','l','e_s'], tip:'连缀 cr + o (/ɒ/) + c (/k/) + 弱读 o (/ə/) + dile (魔法 i_e 发 /aɪ/)', s:'A green crocodile.' },
       { u:'u7', w:'tiger', ipa:'/ˈtaɪɡə/', zh:'老虎', e:'🐯', b:['t','i_ai','.','g','er'], tip:'开音节 ti (i 发双元音 /aɪ/) + ger (英音 er 发 /ə/)', s:'An orange and black tiger.' },
       { u:'u7', w:'snake', ipa:'/sneɪk/', zh:'蛇', e:'🐍', b:['sn','a_ei','k','e_s'], tip:'辅音连缀 sn /sn/ + 魔法 a_e (/eɪ/) + k /k/ + 静音 e', s:'A long snake.' },
-      { u:'u7', w:'monkey', ipa:'/ˈmʌŋki/', zh:'猴子', e:'🐵', b:['m','o_u','n','.','k','ey_i'], tip:'mon (o 在 n 前发 /ʌ/) + key (词尾 ey 发 /i/)', s:'A funny monkey.' },
+      { u:'u7', w:'monkey', ipa:'/ˈmʌŋki/', zh:'猴子', e:'🐵', b:['m','o_u','nk','ey_i'], tip:'mon (o 在 n 前发 /ʌ/) + key (词尾 ey 发 /i/)', s:'A funny monkey.' },
       { u:'u7', w:'tail', ipa:'/teɪl/', zh:'尾巴', e:'🐒', b:['t','ai','l'], tip:'t /t/ + 元音组合 ai 发双元音 /eɪ/ + l /l/', s:'A long tail.' },
       { u:'u7', w:'leg', ipa:'/leɡ/', zh:'腿', e:'🦵', b:['l','e','g'], tip:'标准闭音节：l /l/ + 短音 e /e/ + g /ɡ/', s:'Four long legs.' },
       { u:'u7', w:'hand', ipa:'/hænd/', zh:'手', e:'✋', b:['h','a','nd'], tip:'h /h/ + 梅花音 a /æ/ + 尾连缀 nd /nd/', s:'Clap your hands.' },
@@ -921,10 +923,10 @@
 
         const joinedIpa = item.b.map(tok => {
           if (tok === '.' || tok === '-') return '';
-          if (tok === ' ') return ' ';
+          if (tok === ' ' || tok === '=') return ' ';
           const info = PHONEME_DICT[tok];
           if (!info || info.k === 's' || info.ipa === '静音') return '';
-          return info.ipa.replace(/\//g, '');
+          return info.ipa.replace(/[\/ˈˌ]/g, '');
         }).join('').replace(/\s+/g, ' ').trim();
 
         const cleanTargetIpa = (item.ipa || '').replace(/[/ˈˌ]/g, '').replace(/\s+/g, ' ').trim();
@@ -1057,9 +1059,10 @@
       ['pointerdown', 'touchstart', 'keydown', 'click'].forEach(ev => window.addEventListener(ev, tryUnlock, { passive: true }));
     })();
 
-    // Decode all real phonemes as soon as the page loads (async, non-blocking), so the very
-    // first tap plays instantly instead of waiting for warm-up inside a gesture.
-    warmupPhonemeAudio();
+    // Decode all real phonemes right after the whole script (incl. the PHONEME_AUDIO data
+    // block) has executed. Calling this synchronously here would hit the const TDZ
+    // (PHONEME_AUDIO is declared later in the file) and blank the whole app.
+    setTimeout(() => warmupPhonemeAudio(), 0);
 
     // Synthesize crisp British short vowel /ɒ/ (as in 'what', 'wash', 'on', 'dog') or pure phoneme fallback
     // when network audio is unavailable or to guarantee zero alphabet-name misreading.
@@ -1592,6 +1595,7 @@
       '/tiː/': ['/t/','/iː/'],
       '/tw/': ['/t/','/w/'],
       '/wʌ/': ['/w/','/ʌ/'],
+      '/ər/': ['/ə/','/r/'],
       '/ŋk/': ['/ŋ/','/k/'],
       '/əʊˈkeɪ/': ['/əʊ/','/k/','/eɪ/'],
       '/ɡl/': ['/ɡ/','/l/'],
@@ -1900,7 +1904,7 @@
         for (let i = 0; i < wordObj.b.length; i++) {
           if (seqId !== activeSequenceId) return;
           const token = wordObj.b[i];
-          if (token === '.' || token === '-') continue;
+          if (token === '.' || token === '-' || token === '=') continue;
           if (token === ' ') {
             await sleep(40);
             continue;
@@ -2012,6 +2016,9 @@
         }
         if (token === '-') {
           return `<span class="syllable-dot select-none">-</span>`;
+        }
+        if (token === '=') {
+          return `<span class="syllable-dot select-none">=</span>`;
         }
         if (token === ' ') {
           return `<span class="space-divider"></span>`;
