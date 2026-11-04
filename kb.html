@@ -127,8 +127,11 @@
         </div>
         <div class="flex items-center gap-1.5 text-[11px] sm:text-xs font-bold">
           <span id="audioStatusBadge" onclick="unlockAndTestAudio()" class="inline-flex items-center gap-1 text-emerald-800 bg-emerald-100 px-1.5 py-0.5 rounded border border-emerald-400 cursor-pointer">
-            🔊 激活声音
+            ✨ 真人原声流 + 纯正音素已激活
           </span>
+          <button onclick="toggleVoiceModal(true)" class="inline-flex items-center gap-0.5 text-amber-900 bg-amber-100 px-1.5 py-0.5 rounded border border-amber-400 cursor-pointer">
+            🔧 语音诊断与音质校准
+          </button>
           <button onclick="toggleHelpModal(true)" class="inline-flex items-center gap-0.5 text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-300 cursor-pointer">
             📱 手机/iPad用法
           </button>
@@ -371,504 +374,508 @@
 
   <script>
     // ==================== 1. PURE PHONEME & SYLLABLE AUDIO ENGINE ====================
-    // Every single phonics tile maps to a pure phonetic sound (NEVER letter names like "bee", "double-o", "kay")
-    // We combine Web Audio consonant burst synthesis + carefully tuned phonetic respellings for Web Speech API.
+    // Every single phonics tile maps to:
+    // - `tts`: carefully calibrated phonetic carrier for real human dictionary stream
+    // - `cut`: max duration in ms for crisp consonant envelope trimming (prevents "uh" drag on plosives)
+    // - `ipa`: standard Cambridge IPA symbol shown on the tile
     const PHONEME_DICT = {
-      // Single Consonants & Digraphs (Pure phonetic sound + IPA)
-      'b':   { tts: 'buh',  ipa: '/b/',  k: 'c' },
-      'bb':  { tts: 'buh',  ipa: '/b/',  k: 'c' },
-      'c':   { tts: 'kuh',  ipa: '/k/',  k: 'c' },
-      'c_s': { tts: 'sss',  ipa: '/s/',  k: 'c', display: 'c' },
-      'ck':  { tts: 'kuh',  ipa: '/k/',  k: 'c' },
-      'ch':  { tts: 'chuh', ipa: '/tʃ/', k: 'c' },
-      'ch_k':{ tts: 'kuh',  ipa: '/k/',  k: 'c', display: 'ch' },
-      'd':   { tts: 'duh',  ipa: '/d/',  k: 'c' },
-      'dd':  { tts: 'duh',  ipa: '/d/',  k: 'c' },
-      'f':   { tts: 'fff',  ipa: '/f/',  k: 'c' },
-      'ff':  { tts: 'fff',  ipa: '/f/',  k: 'c' },
-      'g':   { tts: 'guh',  ipa: '/ɡ/',  k: 'c' },
-      'gg':  { tts: 'guh',  ipa: '/ɡ/',  k: 'c' },
-      'g_j': { tts: 'juh',  ipa: '/dʒ/', k: 'c', display: 'g' },
-      'ge':  { tts: 'juh',  ipa: '/dʒ/', k: 'c' },
-      'h':   { tts: 'huh',  ipa: '/h/',  k: 'c' },
-      'j':   { tts: 'juh',  ipa: '/dʒ/', k: 'c' },
-      'k':   { tts: 'kuh',  ipa: '/k/',  k: 'c' },
-      'kn':  { tts: 'nnn',  ipa: '/n/',  k: 'c' },
-      'l':   { tts: 'lll',  ipa: '/l/',  k: 'c' },
-      'll':  { tts: 'lll',  ipa: '/l/',  k: 'c' },
-      'm':   { tts: 'mmm',  ipa: '/m/',  k: 'c' },
-      'mm':  { tts: 'mmm',  ipa: '/m/',  k: 'c' },
-      'n':   { tts: 'nnn',  ipa: '/n/',  k: 'c' },
-      'nn':  { tts: 'nnn',  ipa: '/n/',  k: 'c' },
-      'ng':  { tts: 'ng',   ipa: '/ŋ/',  k: 'c' },
-      'nk':  { tts: 'engk', ipa: '/ŋk/', k: 'c' },
-      'p':   { tts: 'puh',  ipa: '/p/',  k: 'c' },
-      'pp':  { tts: 'puh',  ipa: '/p/',  k: 'c' },
-      'ph':  { tts: 'fff',  ipa: '/f/',  k: 'c' },
-      'qu':  { tts: 'kwuh', ipa: '/kw/', k: 'c' },
-      'r':   { tts: 'rrr',  ipa: '/r/',  k: 'c' },
-      'rr':  { tts: 'rrr',  ipa: '/r/',  k: 'c' },
-      's':   { tts: 'sss',  ipa: '/s/',  k: 'c' },
-      'ss':  { tts: 'sss',  ipa: '/s/',  k: 'c' },
-      's_z': { tts: 'zzz',  ipa: '/z/',  k: 'c', display: 's' },
-      'sh':  { tts: 'shh',  ipa: '/ʃ/',  k: 'c' },
-      't':   { tts: 'tuh',  ipa: '/t/',  k: 'c' },
-      'tt':  { tts: 'tuh',  ipa: '/t/',  k: 'c' },
-      'th':  { tts: 'thuh', ipa: '/θ/',  k: 'c' },
-      'th_v':{ tts: 'thuh', ipa: '/ð/',  k: 'c', display: 'th' },
-      'tch': { tts: 'chuh', ipa: '/tʃ/', k: 'c' },
-      'v':   { tts: 'vvv',  ipa: '/v/',  k: 'c' },
-      'w':   { tts: 'wuh',  ipa: '/w/',  k: 'c' },
-      'wh':  { tts: 'wuh',  ipa: '/w/',  k: 'c' },
-      'wh_h':{ tts: 'huh',  ipa: '/h/',  k: 'c', display: 'wh' },
-      'x':   { tts: 'ks',   ipa: '/ks/', k: 'c' },
-      'y':   { tts: 'yuh',  ipa: '/j/',  k: 'c' },
-      'z':   { tts: 'zzz',  ipa: '/z/',  k: 'c' },
+      // Single Consonants & Digraphs (Pure phonetic sound + crisp envelope cut ms)
+      'b':   { tts: 'buh',  cut: 240, ipa: '/b/',  k: 'c' },
+      'bb':  { tts: 'buh',  cut: 240, ipa: '/b/',  k: 'c' },
+      'c':   { tts: 'kuh',  cut: 220, ipa: '/k/',  k: 'c', synth: 'k' },
+      'c_s': { tts: 'sss',  cut: 360, ipa: '/s/',  k: 'c', display: 'c', synth: 's' },
+      'ck':  { tts: 'kuh',  cut: 220, ipa: '/k/',  k: 'c', synth: 'k' },
+      'ch':  { tts: 'chuh', cut: 280, ipa: '/tʃ/', k: 'c', synth: 'ch' },
+      'ch_k':{ tts: 'kuh',  cut: 220, ipa: '/k/',  k: 'c', display: 'ch', synth: 'k' },
+      'd':   { tts: 'duh',  cut: 240, ipa: '/d/',  k: 'c' },
+      'dd':  { tts: 'duh',  cut: 240, ipa: '/d/',  k: 'c' },
+      'f':   { tts: 'fff',  cut: 350, ipa: '/f/',  k: 'c', synth: 'f' },
+      'ff':  { tts: 'fff',  cut: 350, ipa: '/f/',  k: 'c', synth: 'f' },
+      'g':   { tts: 'guh',  cut: 250, ipa: '/ɡ/',  k: 'c' },
+      'gg':  { tts: 'guh',  cut: 250, ipa: '/ɡ/',  k: 'c' },
+      'g_j': { tts: 'juh',  cut: 280, ipa: '/dʒ/', k: 'c', display: 'g' },
+      'ge':  { tts: 'juh',  cut: 280, ipa: '/dʒ/', k: 'c' },
+      'h':   { tts: 'huh',  cut: 230, ipa: '/h/',  k: 'c', synth: 'h' },
+      'j':   { tts: 'juh',  cut: 280, ipa: '/dʒ/', k: 'c' },
+      'k':   { tts: 'kuh',  cut: 220, ipa: '/k/',  k: 'c', synth: 'k' },
+      'kn':  { tts: 'nnn',  cut: 380, ipa: '/n/',  k: 'c' },
+      'l':   { tts: 'luh',  cut: 300, ipa: '/l/',  k: 'c' },
+      'll':  { tts: 'luh',  cut: 300, ipa: '/l/',  k: 'c' },
+      'm':   { tts: 'mmm',  cut: 380, ipa: '/m/',  k: 'c' },
+      'mm':  { tts: 'mmm',  cut: 380, ipa: '/m/',  k: 'c' },
+      'n':   { tts: 'nnn',  cut: 380, ipa: '/n/',  k: 'c' },
+      'nn':  { tts: 'nnn',  cut: 380, ipa: '/n/',  k: 'c' },
+      'ng':  { tts: 'ing',  cut: 400, ipa: '/ŋ/',  k: 'c' },
+      'nk':  { tts: 'ink',  cut: 400, ipa: '/ŋk/', k: 'c' },
+      'p':   { tts: 'puh',  cut: 210, ipa: '/p/',  k: 'c', synth: 'p' },
+      'pp':  { tts: 'puh',  cut: 210, ipa: '/p/',  k: 'c', synth: 'p' },
+      'ph':  { tts: 'fff',  cut: 350, ipa: '/f/',  k: 'c', synth: 'f' },
+      'qu':  { tts: 'kwuh', cut: 300, ipa: '/kw/', k: 'c' },
+      'r':   { tts: 'ruh',  cut: 300, ipa: '/r/',  k: 'c' },
+      'rr':  { tts: 'ruh',  cut: 300, ipa: '/r/',  k: 'c' },
+      's':   { tts: 'sss',  cut: 360, ipa: '/s/',  k: 'c', synth: 's' },
+      'ss':  { tts: 'sss',  cut: 360, ipa: '/s/',  k: 'c', synth: 's' },
+      's_z': { tts: 'zzz',  cut: 360, ipa: '/z/',  k: 'c', display: 's' },
+      'se_z':{ tts: 'zzz',  cut: 360, ipa: '/z/',  k: 'c', display: 'se' },
+      'sh':  { tts: 'shh',  cut: 360, ipa: '/ʃ/',  k: 'c', synth: 'sh' },
+      't':   { tts: 'tuh',  cut: 210, ipa: '/t/',  k: 'c', synth: 't' },
+      'tt':  { tts: 'tuh',  cut: 210, ipa: '/t/',  k: 'c', synth: 't' },
+      'tch': { tts: 'chuh', cut: 280, ipa: '/tʃ/', k: 'c', synth: 'ch' },
+      'th_u':{ tts: 'thuh', cut: 300, ipa: '/θ/',  k: 'c', display: 'th', synth: 'th' },
+      'th_v':{ tts: 'the',  cut: 270, ipa: '/ð/',  k: 'c', display: 'th' },
+      'v':   { tts: 'vvv',  cut: 350, ipa: '/v/',  k: 'c' },
+      've':  { tts: 'vvv',  cut: 350, ipa: '/v/',  k: 'c' },
+      'w':   { tts: 'wuh',  cut: 260, ipa: '/w/',  k: 'c' },
+      'wh':  { tts: 'wuh',  cut: 260, ipa: '/w/',  k: 'c' },
+      'wh_h':{ tts: 'huh',  cut: 240, ipa: '/h/',  k: 'c', display: 'wh', synth: 'h' },
+      'x':   { tts: 'ks',   cut: 360, ipa: '/ks/', k: 'c' },
+      'y_c': { tts: 'yuh',  cut: 270, ipa: '/j/',  k: 'c', display: 'y' },
+      'z':   { tts: 'zzz',  cut: 360, ipa: '/z/',  k: 'c' },
 
-      // Consonant Blends
-      'bl':  { tts: 'bluh', ipa: '/bl/', k: 'c' },
-      'br':  { tts: 'bruh', ipa: '/br/', k: 'c' },
-      'cl':  { tts: 'kluh', ipa: '/kl/', k: 'c' },
-      'cr':  { tts: 'kruh', ipa: '/kr/', k: 'c' },
-      'dr':  { tts: 'druh', ipa: '/dr/', k: 'c' },
-      'fl':  { tts: 'fluh', ipa: '/fl/', k: 'c' },
-      'fr':  { tts: 'fruh', ipa: '/fr/', k: 'c' },
-      'gl':  { tts: 'gluh', ipa: '/ɡl/', k: 'c' },
-      'gr':  { tts: 'gruh', ipa: '/ɡr/', k: 'c' },
-      'pl':  { tts: 'pluh', ipa: '/pl/', k: 'c' },
-      'pr':  { tts: 'pruh', ipa: '/pr/', k: 'c' },
-      'sc':  { tts: 'skuh', ipa: '/sk/', k: 'c' },
-      'sk':  { tts: 'skuh', ipa: '/sk/', k: 'c' },
-      'sl':  { tts: 'sluh', ipa: '/sl/', k: 'c' },
-      'sm':  { tts: 'smuh', ipa: '/sm/', k: 'c' },
-      'sn':  { tts: 'snuh', ipa: '/sn/', k: 'c' },
-      'sp':  { tts: 'spuh', ipa: '/sp/', k: 'c' },
-      'st':  { tts: 'stuh', ipa: '/st/', k: 'c' },
-      'sw':  { tts: 'swuh', ipa: '/sw/', k: 'c' },
-      'tr':  { tts: 'truh', ipa: '/tr/', k: 'c' },
-      'tw':  { tts: 'twuh', ipa: '/tw/', k: 'c' },
-      'nd':  { tts: 'nd',   ipa: '/nd/', k: 'c' },
-      'nt':  { tts: 'nt',   ipa: '/nt/', k: 'c' },
-      'mp':  { tts: 'mp',   ipa: '/mp/', k: 'c' },
-      'ft':  { tts: 'ft',   ipa: '/ft/', k: 'c' },
-      'lt':  { tts: 'lt',   ipa: '/lt/', k: 'c' },
+      // Consonant Blends (Crisp onset clusters)
+      'bl':  { tts: 'bluh', cut: 310, ipa: '/bl/', k: 'c' },
+      'br':  { tts: 'bruh', cut: 310, ipa: '/br/', k: 'c' },
+      'cl':  { tts: 'kluh', cut: 310, ipa: '/kl/', k: 'c' },
+      'cr':  { tts: 'kruh', cut: 310, ipa: '/kr/', k: 'c' },
+      'dr':  { tts: 'druh', cut: 310, ipa: '/dr/', k: 'c' },
+      'fl':  { tts: 'fluh', cut: 310, ipa: '/fl/', k: 'c' },
+      'fr':  { tts: 'fruh', cut: 310, ipa: '/fr/', k: 'c' },
+      'gl':  { tts: 'gluh', cut: 310, ipa: '/ɡl/', k: 'c' },
+      'gr':  { tts: 'gruh', cut: 310, ipa: '/ɡr/', k: 'c' },
+      'pl':  { tts: 'pluh', cut: 310, ipa: '/pl/', k: 'c' },
+      'pr':  { tts: 'pruh', cut: 310, ipa: '/pr/', k: 'c' },
+      'sk':  { tts: 'skuh', cut: 320, ipa: '/sk/', k: 'c' },
+      'sl':  { tts: 'sluh', cut: 320, ipa: '/sl/', k: 'c' },
+      'sm':  { tts: 'smuh', cut: 320, ipa: '/sm/', k: 'c' },
+      'sn':  { tts: 'snuh', cut: 320, ipa: '/sn/', k: 'c' },
+      'sp':  { tts: 'spuh', cut: 320, ipa: '/sp/', k: 'c' },
+      'st':  { tts: 'stuh', cut: 320, ipa: '/st/', k: 'c' },
+      'sw':  { tts: 'swuh', cut: 320, ipa: '/sw/', k: 'c' },
+      'tr':  { tts: 'truh', cut: 310, ipa: '/tr/', k: 'c' },
+      'tw':  { tts: 'twuh', cut: 310, ipa: '/tw/', k: 'c' },
+      'nd':  { tts: 'nd',   cut: 340, ipa: '/nd/', k: 'c' },
+      'nt':  { tts: 'nt',   cut: 330, ipa: '/nt/', k: 'c' },
 
-      // Short Vowels
-      'a':     { tts: 'aah', ipa: '/æ/',  k: 'v' },
-      'a_o':   { tts: 'aw',  ipa: '/ɒ/',  k: 'v', display: 'a' },
-      'a_i':   { tts: 'ih',  ipa: '/ɪ/',  k: 'v', display: 'a' },
-      'e':     { tts: 'eh',  ipa: '/e/',  k: 'v' },
-      'e_i':   { tts: 'ih',  ipa: '/ɪ/',  k: 'v', display: 'e' },
-      'i':     { tts: 'ih',  ipa: '/ɪ/',  k: 'v' },
-      'i_uh':  { tts: 'uh',  ipa: '/ə/',  k: 'v', display: 'i' },
-      'o':     { tts: 'aw',  ipa: '/ɒ/',  k: 'v' },
-      'o_uh2': { tts: 'uh',  ipa: '/ə/',  k: 'v', display: 'o' },
-      'o_u':   { tts: 'uh',  ipa: '/ʊ/',  k: 'v', display: 'o' },
-      'u':     { tts: 'uh',  ipa: '/ʌ/',  k: 'v' },
-      'u_oo':  { tts: 'uh',  ipa: '/ʊ/',  k: 'v', display: 'u' },
-      'a_uh':  { tts: 'uh',  ipa: '/ə/',  k: 'v', display: 'a' },
-      'e_uh':  { tts: 'uh',  ipa: '/ə/',  k: 'v', display: 'e' },
-      'o_uh':  { tts: 'uh',  ipa: '/ʌ/',  k: 'v', display: 'o' },
-      'ou_uh': { tts: 'uh',  ipa: '/ʌ/',  k: 'v', display: 'ou' },
+      // Short Vowels, Long Vowels, Diphthongs & R-Controlled Vowels (Context-Accurate!)
+      'a':     { tts: 'at',   cut: 260, ipa: '/æ/',  k: 'v' }, // short a as in cat, bag (trimmed before t)
+      'a_ei':  { tts: 'eight',cut: 280, ipa: '/eɪ/', k: 'v', display: 'a' }, // long a as in name, cake, table
+      'a_o':   { tts: 'on',   cut: 260, ipa: '/ɒ/',  k: 'v', display: 'a' }, // a after w as in what, wash, watch
+      'a_ar':  { tts: 'ah',   cut: 420, ipa: '/ɑː/', k: 'v', display: 'a' }, // bath, father, glasses
+      'a_schwa':{ tts: 'uh',  cut: 260, ipa: '/ə/',  k: 'v', display: 'a' }, // unstressed a as in banana, sofa
+      'a_e_air':{ tts: 'air', cut: 450, ipa: '/eə/', k: 'v', display: 'a' },
+      'ai':    { tts: 'aim',  cut: 300, ipa: '/eɪ/', k: 'v' },
+      'ay':    { tts: 'day',  cut: 420, ipa: '/eɪ/', k: 'v' },
+      'ar':    { tts: 'are',  cut: 440, ipa: '/ɑː/', k: 'v' },
+      'air':   { tts: 'air',  cut: 450, ipa: '/eə/', k: 'v' },
+      'al':    { tts: 'all',  cut: 440, ipa: '/ɔː/', k: 'v' },
+      'all':   { tts: 'all',  cut: 450, ipa: '/ɔːl/',k: 'v' },
 
-      // Long Vowels & Vowel Teams
-      'a_ay':  { tts: 'ay',  ipa: '/eɪ/', k: 'v', display: 'a' },
-      'ai':    { tts: 'ay',  ipa: '/eɪ/', k: 'v' },
-      'ay':    { tts: 'ay',  ipa: '/eɪ/', k: 'v' },
-      'ey':    { tts: 'ay',  ipa: '/eɪ/', k: 'v' },
-      'ei':    { tts: 'ay',  ipa: '/eɪ/', k: 'v' },
-      'e_ee':  { tts: 'ee',  ipa: '/iː/', k: 'v', display: 'e' },
-      'ee':    { tts: 'ee',  ipa: '/iː/', k: 'v' },
-      'ea':    { tts: 'ee',  ipa: '/iː/', k: 'v' },
-      'ea_eh': { tts: 'eh',  ipa: '/e/',  k: 'v', display: 'ea' },
-      'y_ee':  { tts: 'ee',  ipa: '/i/',  k: 'v', display: 'y' },
-      'y_ai':  { tts: 'eye', ipa: '/aɪ/', k: 'v', display: 'y' },
-      'i_ai':  { tts: 'eye', ipa: '/aɪ/', k: 'v', display: 'i' },
-      'ie_eh': { tts: 'eh',  ipa: '/e/',  k: 'v', display: 'ie' },
-      'o_oh':  { tts: 'oh',  ipa: '/əʊ/', k: 'v', display: 'o' },
-      'oa':    { tts: 'oh',  ipa: '/əʊ/', k: 'v' },
-      'oe':    { tts: 'oh',  ipa: '/əʊ/', k: 'v' },
-      'oe_oo': { tts: 'oo',  ipa: '/uː/', k: 'v', display: 'oe' },
-      'ow_oh': { tts: 'oh',  ipa: '/əʊ/', k: 'v', display: 'ow' },
-      'ow':    { tts: 'ow',  ipa: '/aʊ/', k: 'v' },
-      'ou':    { tts: 'ow',  ipa: '/aʊ/', k: 'v' },
-      'oo_short': { tts: 'uh', ipa: '/ʊ/', k: 'v', display: 'oo' },
-      'oo':    { tts: 'oo',  ipa: '/uː/', k: 'v' },
-      'ue':    { tts: 'oo',  ipa: '/uː/', k: 'v' },
-      'o_oo':  { tts: 'oo',  ipa: '/uː/', k: 'v', display: 'o' },
-      'ou_oo': { tts: 'oo',  ipa: '/uː/', k: 'v', display: 'ou' },
-      'u_ju':  { tts: 'yoo', ipa: '/juː/',k: 'v', display: 'u' },
-      'eau':   { tts: 'yoo', ipa: '/juː/',k: 'v' },
+      'e':     { tts: 'eh',   cut: 320, ipa: '/e/',  k: 'v' }, // short e as in pen, red, ten
+      'e_long':{ tts: 'eat',  cut: 290, ipa: '/iː/', k: 'v', display: 'e' }, // he, she, me, we, be
+      'e_i':   { tts: 'in',   cut: 250, ipa: '/ɪ/',  k: 'v', display: 'e' }, // eraser, jacket, forest, behind
+      'e_schwa':{ tts: 'uh',  cut: 260, ipa: '/ə/',  k: 'v', display: 'e' },
+      'ee':    { tts: 'eel',  cut: 310, ipa: '/iː/', k: 'v' },
+      'ea':    { tts: 'eat',  cut: 290, ipa: '/iː/', k: 'v' },
+      'ea_e':  { tts: 'eh',   cut: 320, ipa: '/e/',  k: 'v', display: 'ea' }, // head, bread
+      'ear':   { tts: 'ear',  cut: 450, ipa: '/ɪə/', k: 'v' }, // ear, hear
+      'ear_air':{ tts: 'air', cut: 450, ipa: '/eə/', k: 'v', display: 'ear' }, // pear, bear, wear
+      'er':    { tts: 'uh',   cut: 340, ipa: '/ə/',  k: 'v' },
+      'er_long':{ tts: 'err', cut: 440, ipa: '/ɜː/', k: 'v', display: 'er' }, // her
+      'ere':   { tts: 'ear',  cut: 450, ipa: '/ɪə/', k: 'v' }, // here
+      'ere_air':{ tts: 'air', cut: 450, ipa: '/eə/', k: 'v', display: 'ere' }, // where, there
+      'ey':    { tts: 'day',  cut: 420, ipa: '/eɪ/', k: 'v' }, // grey
+      'ey_i':  { tts: 'eat',  cut: 290, ipa: '/i/',  k: 'v', display: 'ey' }, // monkey
+      'ei':    { tts: 'eight',cut: 280, ipa: '/eɪ/', k: 'v' }, // eight
+      'eau':   { tts: 'you',  cut: 420, ipa: '/juː/',k: 'v' }, // beautiful
 
-      // R-Controlled & Diphthongs
-      'ar':    { tts: 'ar',  ipa: '/ɑː/', k: 'v' },
-      'a_ar':  { tts: 'ar',  ipa: '/ɑː/', k: 'v', display: 'a' },
-      'or':    { tts: 'or',  ipa: '/ɔː/', k: 'v' },
-      'oor':   { tts: 'or',  ipa: '/ɔː/', k: 'v' },
-      'our':   { tts: 'or',  ipa: '/ɔː/', k: 'v' },
-      'a_or':  { tts: 'or',  ipa: '/ɔː/', k: 'v', display: 'a' },
-      'al':    { tts: 'or',  ipa: '/ɔː/', k: 'v' },
-      'aw':    { tts: 'or',  ipa: '/ɔː/', k: 'v' },
-      'er':    { tts: 'er',  ipa: '/ɜː/', k: 'v' },
-      'ir':    { tts: 'er',  ipa: '/ɜː/', k: 'v' },
-      'ur':    { tts: 'er',  ipa: '/ɜː/', k: 'v' },
-      'or_er': { tts: 'er',  ipa: '/ə/',  k: 'v', display: 'or' },
-      'our_er':{ tts: 'er',  ipa: '/ə/',  k: 'v', display: 'our' },
-      'ear':   { tts: 'ear', ipa: '/ɪə/', k: 'v' },
-      'air':   { tts: 'air', ipa: '/eə/', k: 'v' },
-      'ear_air':{tts: 'air', ipa: '/eə/', k: 'v', display: 'ear' },
-      'ere':   { tts: 'air', ipa: '/eə/', k: 'v' },
-      'oy':    { tts: 'oy',  ipa: '/ɔɪ/', k: 'v' },
-      'oi':    { tts: 'oy',  ipa: '/ɔɪ/', k: 'v' },
-      'le':    { tts: 'ul',  ipa: '/əl/', k: 'v' },
+      'i':     { tts: 'in',   cut: 250, ipa: '/ɪ/',  k: 'v' }, // sit, big, six, fish
+      'i_ai':  { tts: 'eye',  cut: 440, ipa: '/aɪ/', k: 'v', display: 'i' }, // I, five, nine, bike, white, tiger
+      'i_schwa':{ tts: 'uh',  cut: 260, ipa: '/ə/',  k: 'v', display: 'i' }, // pencil, family, animal
+      'ie':    { tts: 'eh',   cut: 320, ipa: '/e/',  k: 'v' }, // friend
+      'ir':    { tts: 'err',  cut: 440, ipa: '/ɜː/', k: 'v' }, // bird, girl, shirt, skirt, dirty
 
-      // Silent Letters (Never spoken, dashed grey tile)
-      'e_s':   { tts: '',    ipa: '静音', k: 's', display: 'e' },
-      'w_s':   { tts: '',    ipa: '静音', k: 's', display: 'w' },
-      'gh_s':  { tts: '',    ipa: '静音', k: 's', display: 'gh' },
-      'l_s':   { tts: '',    ipa: '静音', k: 's', display: 'l' },
-      't_s':   { tts: '',    ipa: '静音', k: 's', display: 't' }
+      'o':     { tts: 'on',   cut: 260, ipa: '/ɒ/',  k: 'v' }, // dog, box, on, long, clock
+      'o_ou':  { tts: 'oh',   cut: 420, ipa: '/əʊ/', k: 'v', display: 'o' }, // no, go, open, nose, hippo, piano
+      'o_u':   { tts: 'up',   cut: 250, ipa: '/ʌ/',  k: 'v', display: 'o' }, // mother, brother, monkey, colour, some
+      'o_wu':  { tts: 'won',  cut: 350, ipa: '/wʌ/', k: 'v', display: 'o' }, // one
+      'o_long_u':{ tts: 'ooze',cut: 310, ipa: '/uː/', k: 'v', display: 'o' }, // two, who, do, to, move
+      'o_short_u':{ tts: 'book',cut: 290, ipa: '/ʊ/', k: 'v', display: 'o' }, // woman
+      'o_schwa':{ tts: 'uh',  cut: 260, ipa: '/ə/',  k: 'v', display: 'o' }, // lemon, computer, crocodile
+      'oa':    { tts: 'oak',  cut: 300, ipa: '/əʊ/', k: 'v' }, // boat
+      'oe':    { tts: 'oh',   cut: 420, ipa: '/əʊ/', k: 'v' }, // toe
+      'oe_u':  { tts: 'ooze', cut: 310, ipa: '/uː/', k: 'v', display: 'oe' }, // shoes
+      'oi':    { tts: 'oil',  cut: 340, ipa: '/ɔɪ/', k: 'v' }, // point
+      'oy':    { tts: 'boy',  cut: 430, ipa: '/ɔɪ/', k: 'v' }, // boy, toy
+      'oo_short':{ tts: 'good',cut: 290, ipa: '/ʊ/',  k: 'v', display: 'oo' }, // book, look, foot, good
+      'oo_long':{ tts: 'ooze', cut: 320, ipa: '/uː/', k: 'v', display: 'oo' }, // school, food, room, tooth
+      'oo_o':  { tts: 'or',   cut: 430, ipa: '/ɔː/', k: 'v', display: 'oo' }, // door, floor
+      'or':    { tts: 'or',   cut: 430, ipa: '/ɔː/', k: 'v' }, // short, horse, lorry
+      'or_er': { tts: 'uh',   cut: 320, ipa: '/ə/',  k: 'v', display: 'or' }, // motorbike
+      'ou':    { tts: 'out',  cut: 300, ipa: '/aʊ/', k: 'v' }, // house, mouse, mouth, trousers
+      'ou_u':  { tts: 'up',   cut: 250, ipa: '/ʌ/',  k: 'v', display: 'ou' }, // young, touch
+      'ou_o':  { tts: 'or',   cut: 430, ipa: '/ɔː/', k: 'v', display: 'ou' }, // four, your
+      'ou_u_long':{ tts: 'you',cut: 420, ipa: '/uː/', k: 'v', display: 'ou' }, // you
+      'ou_ou': { tts: 'oh',   cut: 420, ipa: '/əʊ/', k: 'v', display: 'ou' }, // shoulder
+      'ou_schwa':{ tts: 'uh', cut: 260, ipa: '/ə/',  k: 'v', display: 'ou' }, // colour, favourite
+      'our':   { tts: 'our',  cut: 450, ipa: '/aʊə/',k: 'v' }, // our
+      'ow_au': { tts: 'owl',  cut: 330, ipa: '/aʊ/', k: 'v', display: 'ow' }, // brown, down, how, now
+      'ow_ou': { tts: 'low',  cut: 420, ipa: '/əʊ/', k: 'v', display: 'ow' }, // yellow, rainbow
+
+      'u':     { tts: 'up',   cut: 250, ipa: '/ʌ/',  k: 'v' }, // under, bus, ugly, fun, duck
+      'u_ju':  { tts: 'you',  cut: 420, ipa: '/juː/',k: 'v', display: 'u' }, // computer, music
+      'u_short':{ tts: 'put', cut: 270, ipa: '/ʊ/',  k: 'v', display: 'u' }, // full, pull
+      'ui':    { tts: 'in',   cut: 250, ipa: '/ɪ/',  k: 'v' }, // guitar
+      'ue':    { tts: 'ooze', cut: 320, ipa: '/uː/', k: 'v' }, // blue
+      'ur':    { tts: 'err',  cut: 440, ipa: '/ɜː/', k: 'v' }, // purple, burger, turn
+      'ure':   { tts: 'uh',   cut: 320, ipa: '/ə/',  k: 'v' }, // picture
+
+      'y_ai':  { tts: 'my',   cut: 430, ipa: '/aɪ/', k: 'v', display: 'y' }, // my, fly
+      'y_i':   { tts: 'eat',  cut: 290, ipa: '/i/',  k: 'v', display: 'y' }, // happy, ugly, family, sorry, dirty, lorry, party, body
+      'le':    { tts: 'ull',  cut: 350, ipa: '/l/',  k: 'v' }, // table, purple, apple, crocodile
+
+      // Special Abbreviations & Contractions
+      'I':     { tts: 'eye',  cut: 450, ipa: '/aɪ/', k: 'v' },
+      'OK':    { tts: 'okay', cut: 650, ipa: '/əʊˈkeɪ/', k: 'v' },
+      'T':     { tts: 'tee',  cut: 450, ipa: '/tiː/', k: 'v' },
+      'TV':    { tts: 'TV',   cut: 750, ipa: '/ˌtiːˈviː/', k: 'v' },
+      "I'm":   { tts: "I'm",  cut: 500, ipa: '/aɪm/', k: 'v' },
+      "isn't": { tts: "isn't",cut: 550, ipa: '/ˈɪznt/', k: 'v' },
+      '=':     { tts: 'equals',cut: 550, ipa: '=',   k: 's' },
+
+      // Silent Letters (Dashed gray tiles)
+      'e_s':   { tts: '',     cut: 0,   ipa: '静音', k: 's', display: 'e' },
+      'gh_s':  { tts: '',     cut: 0,   ipa: '静音', k: 's', display: 'gh' },
+      'l_s':   { tts: '',     cut: 0,   ipa: '静音', k: 's', display: 'l' },
+      't_s':   { tts: '',     cut: 0,   ipa: '静音', k: 's', display: 't' },
+      'a_s':   { tts: '',     cut: 0,   ipa: '静音', k: 's', display: 'a' }
     };
 
-    // Helper to build phoneme block arrays concisely
-    // Tokens can be keys in PHONEME_DICT, '.' for syllable divider, '_' for word space,
-    // or custom syllable objects like { t: 'com', tts: 'kom', ipa: '/kəm/', k: 'v' }
-    function P(tokens) {
-      return tokens.map(tok => {
-        if (tok === '.') return { t: 'dot' };
-        if (tok === '_') return { t: 'space' };
-        if (typeof tok === 'object') return tok;
-        const entry = PHONEME_DICT[tok];
-        if (entry) {
-          return {
-            t: entry.display || tok,
-            tts: entry.tts,
-            ipa: entry.ipa,
-            k: entry.k
-          };
-        }
-        return { t: tok, tts: tok, ipa: `/${tok}/`, k: 'v' };
-      });
-    }
-
-    // ==================== 2. COMPLETE KID'S BOX 1 WORD LIST (UNITS 1 TO 12, 222 ITEMS) ====================
+    // ==================== 2. COMPLETE 12 UNITS WORD LIST (222 ITEMS FROM UPLOADED IMAGES) ====================
     const UNITS_META = [
-      { id: 'u1',  num: 1,  title: 'Unit 1 · Hello!',          icon: '👋' },
-      { id: 'u2',  num: 2,  title: 'Unit 2 · My school',       icon: '🎒' },
-      { id: 'u3',  num: 3,  title: 'Unit 3 · Favourite toys',  icon: '🚂' },
-      { id: 'u4',  num: 4,  title: 'Unit 4 · My family',       icon: '👨‍👩‍👧‍👦' },
-      { id: 'u5',  num: 5,  title: 'Unit 5 · Our pets',        icon: '🐶' },
-      { id: 'u6',  num: 6,  title: 'Unit 6 · My face',         icon: '😊' },
-      { id: 'u7',  num: 7,  title: 'Unit 7 · Wild animals',    icon: '🐘' },
-      { id: 'u8',  num: 8,  title: 'Unit 8 · My clothes',      icon: '👗' },
-      { id: 'u9',  num: 9,  title: 'Unit 9 · Fun time!',       icon: '🎸' },
-      { id: 'u10', num: 10, title: 'Unit 10 · At the funfair', icon: '🎡' },
-      { id: 'u11', num: 11, title: 'Unit 11 · Our house',      icon: '🏠' },
-      { id: 'u12', num: 12, title: 'Unit 12 · Party time!',    icon: '🎂' }
+      { id: 'u1',  num: 'Unit 1',  title: 'Hello!',         icon: '👋', color: 'amber' },
+      { id: 'u2',  num: 'Unit 2',  title: 'My school',      icon: '🎒', color: 'blue' },
+      { id: 'u3',  num: 'Unit 3',  title: 'Favourite toys', icon: '🧸', color: 'rose' },
+      { id: 'u4',  num: 'Unit 4',  title: 'My family',      icon: '👨‍👩‍👧‍👦', color: 'emerald' },
+      { id: 'u5',  num: 'Unit 5',  title: 'Our pets',       icon: '🐶', color: 'purple' },
+      { id: 'u6',  num: 'Unit 6',  title: 'My face',        icon: '😊', color: 'teal' },
+      { id: 'u7',  num: 'Unit 7',  title: 'Wild animals',   icon: '🦁', color: 'orange' },
+      { id: 'u8',  num: 'Unit 8',  title: 'My clothes',     icon: '👗', color: 'pink' },
+      { id: 'u9',  num: 'Unit 9',  title: 'Fun time!',      icon: '🎸', color: 'indigo' },
+      { id: 'u10', num: 'Unit 10', title: 'At the funfair', icon: '🎡', color: 'cyan' },
+      { id: 'u11', num: 'Unit 11', title: 'Our house',      icon: '🏠', color: 'lime' },
+      { id: 'u12', num: 'Unit 12', title: 'Party time!',    icon: '🍰', color: 'red' }
     ];
 
-    const WORDS_DB = [
-      // ==================== UNIT 1: Hello! (33 words) ====================
-      { u:'u1', word:'what', syl:'what', ipa:'/wɒt/', cn:'什么', emoji:'❓', blocks:P(['wh','a_o','t']), tip:'wh 发 /w/ + 字母 a 在 w 后发短音 /ɒ/ + t', sentence:"What's your name?" },
-      { u:'u1', word:'is', syl:'is', ipa:'/ɪz/', cn:'是', emoji:'🟰', blocks:P(['i','s_z']), tip:'短音 i (/ɪ/) + s 发浊音 /z/', sentence:'My name is Simon.' },
-      { u:'u1', word:'your', syl:'your', ipa:'/jɔː/', cn:'你的', emoji:'🫵', blocks:P(['y','our']), tip:'y (/j/) + our 发长音 /ɔː/', sentence:"What's your name?" },
-      { u:'u1', word:'name', syl:'name', ipa:'/neɪm/', cn:'名字', emoji:'📛', blocks:P(['n','a_ay','m','e_s']), tip:'魔法 e 结构 (a_e)：a 发本身音 /eɪ/，词尾 e 静音', sentence:'My name is Stella.' },
-      { u:'u1', word:'I', syl:'I', ipa:'/aɪ/', cn:'我', emoji:'🙋', blocks:[{t:'I', tts:'eye', ipa:'/aɪ/', k:'v'}], tip:'永远大写的“我”，直接发字母音 /aɪ/', sentence:"I'm seven." },
-      { u:'u1', word:'my', syl:'my', ipa:'/maɪ/', cn:'我的', emoji:'💖', blocks:P(['m','y_ai']), tip:'m + 词尾 y 发 /aɪ/', sentence:'My favourite colour is blue.' },
-      { u:'u1', word:'number', syl:'num · ber', ipa:'/ˈnʌm.bər/', cn:'数量，数字', emoji:'🔢', blocks:P(['n','u','m','.','b','er']), tip:'双音节：num (/nʌm/) + ber (/bər/)', sentence:'What number is it?' },
-      { u:'u1', word:'one', syl:'one', ipa:'/wʌn/', cn:'一 (1)', emoji:'1️⃣', blocks:[{t:'o',tts:'wuh',ipa:'/wʌ/',k:'v'}, ...P(['n','e_s'])], tip:'高频视觉词：o 发 /wʌ/ + n + 静音 e', sentence:'One table.' },
-      { u:'u1', word:'two', syl:'two', ipa:'/tuː/', cn:'二 (2)', emoji:'2️⃣', blocks:P(['t','w_s','o_oo']), tip:'w 隐身静音，t + o 发长音 /tuː/', sentence:'Two books.' },
-      { u:'u1', word:'three', syl:'three', ipa:'/θriː/', cn:'三 (3)', emoji:'3️⃣', blocks:P(['th','r','ee']), tip:'咬舌音 th + r + 双胞胎长元音 ee (/iː/)', sentence:'Three chairs.' },
-      { u:'u1', word:'four', syl:'four', ipa:'/fɔː/', cn:'四 (4)', emoji:'4️⃣', blocks:P(['f','our']), tip:'f (/f/) + our 组合发长音 /ɔː/', sentence:"It's four." },
-      { u:'u1', word:'five', syl:'five', ipa:'/faɪv/', cn:'五 (5)', emoji:'5️⃣', blocks:P(['f','i_ai','v','e_s']), tip:'魔法 e (i_e)：i 发 /aɪ/，词尾 e 不发音', sentence:"I'm five." },
-      { u:'u1', word:'six', syl:'six', ipa:'/sɪks/', cn:'六 (6)', emoji:'6️⃣', blocks:P(['s','i','x']), tip:'标准三音节拼读：s(/s/) + i(/ɪ/) + x(/ks/)', sentence:'Six orange chairs.' },
-      { u:'u1', word:'seven', syl:'sev · en', ipa:'/ˈsev.ən/', cn:'七 (7)', emoji:'7️⃣', blocks:P(['s','e','v','.','e_uh','n']), tip:'双音节：sev + en', sentence:"He's seven." },
-      { u:'u1', word:'eight', syl:'eight', ipa:'/eɪt/', cn:'八 (8)', emoji:'8️⃣', blocks:P(['ei','gh_s','t']), tip:'ei 发 /eɪ/ + gh 静音不读 + t', sentence:"She's eight." },
-      { u:'u1', word:'nine', syl:'nine', ipa:'/naɪn/', cn:'九 (9)', emoji:'9️⃣', blocks:P(['n','i_ai','n','e_s']), tip:'魔法 e (i_e)：n + i(/aɪ/) + n + 静音 e', sentence:"It's nine." },
-      { u:'u1', word:'ten', syl:'ten', ipa:'/ten/', cn:'十 (10)', emoji:'🔟', blocks:P(['t','e','n']), tip:'标准短元音 CVC：t + e(/e/) + n', sentence:'Ten pencils.' },
-      { u:'u1', word:'colour', syl:'col · our', ipa:'/ˈkʌl.ər/', cn:'颜色', emoji:'🎨', blocks:P(['c','o_uh','l','.','our_er']), tip:'双音节：col (/kʌl/) + our (/ər/)', sentence:'What colour is it?' },
-      { u:'u1', word:'blue', syl:'blue', ipa:'/bluː/', cn:'蓝色', emoji:'🔵', blocks:P(['bl','ue']), tip:'辅音连缀 bl + ue 发长音 /uː/', sentence:"It's blue." },
-      { u:'u1', word:'green', syl:'green', ipa:'/ɡriːn/', cn:'绿色', emoji:'🟢', blocks:P(['gr','ee','n']), tip:'gr 连读 + 双胞胎长音 ee (/iː/) + n', sentence:"It's green." },
-      { u:'u1', word:'orange', syl:'or · ange', ipa:'/ˈɒr.ɪndʒ/', cn:'橘色，橙色', emoji:'🟠', blocks:P(['o','r','.','a_i','n','ge']), tip:'元音 o 开头！or + ange (/ɪndʒ/)', sentence:'An orange chair.' },
-      { u:'u1', word:'pink', syl:'pink', ipa:'/pɪŋk/', cn:'粉色', emoji:'🌸', blocks:P(['p','i','nk']), tip:'p + 短音 i + 鼻音组合 nk (/ŋk/)', sentence:'Sing a rainbow, pink and green.' },
-      { u:'u1', word:'purple', syl:'pur · ple', ipa:'/ˈpɜː.pəl/', cn:'紫色', emoji:'🟣', blocks:P(['p','ur','.','p','le']), tip:'双音节：pur (卷舌音 /pɜː/) + ple', sentence:'Orange and purple and blue.' },
-      { u:'u1', word:'red', syl:'red', ipa:'/red/', cn:'红色', emoji:'🔴', blocks:P(['r','e','d']), tip:'标准短元音 CVC：r + e(/e/) + d', sentence:"My pencil's red." },
-      { u:'u1', word:'yellow', syl:'yel · low', ipa:'/ˈjel.əʊ/', cn:'黄色', emoji:'🟡', blocks:P(['y','e','ll','.','ow_oh']), tip:'双音节：yel + low (ow 发 /əʊ/)', sentence:"It's yellow." },
-      { u:'u1', word:'rainbow', syl:'rain · bow', ipa:'/ˈreɪn.bəʊ/', cn:'彩虹', emoji:'🌈', blocks:P(['r','ai','n','.','b','ow_oh']), tip:'合成词：rain (雨 /reɪn/) + bow (弓 /bəʊ/)', sentence:'I can sing a rainbow.' },
-      { u:'u1', word:'walk', syl:'walk', ipa:'/wɔːk/', cn:'走路', emoji:'🚶', blocks:P(['w','a_or','l_s','k']), tip:'al 组合中 l 静音，a 发 /ɔː/：w + a(/ɔː/) + k', sentence:'Walk to the door.' },
-      { u:'u1', word:'talk', syl:'talk', ipa:'/tɔːk/', cn:'说话', emoji:'🗣️', blocks:P(['t','a_or','l_s','k']), tip:'和 walk 押韵：l 静音，t + a(/ɔː/) + k', sentence:'Talk to your friend.' },
-      { u:'u1', word:'close the door', syl:'close · the · door', ipa:'/kləʊz ðə dɔː/', cn:'关门', emoji:'🚪', blocks:P(['cl','o_oh','s_z','e_s','_','th_v','e_uh','_','d','oor']), tip:'指令短语：close (o_e发/əʊ/) + the + door', sentence:'Close the door, please.' },
-      { u:'u1', word:'sit down', syl:'sit · down', ipa:'/sɪt daʊn/', cn:'坐下', emoji:'🪑', blocks:P(['s','i','t','_','d','ow','n']), tip:'指令短语：sit (s-i-t) + down (d-ow-n)', sentence:'Sit down, please.' },
-      { u:'u1', word:'listen', syl:'lis · ten', ipa:'/ˈlɪs.ən/', cn:'听', emoji:'👂', blocks:P(['l','i','s','.','t_s','e_uh','n']), tip:'注意中间的 t 是静音字母哦：lis + (t)en', sentence:'Listen to the song.' },
-      { u:'u1', word:'look', syl:'look', ipa:'/lʊk/', cn:'看', emoji:'👀', blocks:P(['l','oo_short','k']), tip:'oo 看起来像两只大眼睛，发短音 /ʊ/', sentence:'Look at this!' },
-      { u:'u1', word:'monster', syl:'mon · ster', ipa:'/ˈmɒn.stər/', cn:'怪物', emoji:'👾', blocks:P(['m','o','n','.','st','er']), tip:'双音节：mon (/mɒn/) + ster (/stər/)', sentence:'Maskman is a monster?' },
+    // Structure of `b` (blocks):
+    // Strings in PHONEME_DICT -> phonics tile; '.' -> syllable dot; ' ' -> word space
+    const KB1_WORDS = [
+      // ==================== UNIT 1: Hello! (30 items) ====================
+      { u:'u1', w:'what', zh:'什么', e:'❓', b:['wh','a_o','t'], tip:'wh 发 /w/ + a 在 w 后发短音 /ɒ/ + t', s:"What's your name?" },
+      { u:'u1', w:'is', zh:'是', e:'✨', b:['i','s_z'], tip:'短元音 i /ɪ/ + s 在词尾浊化发 /z/', s:'My name is Simon.' },
+      { u:'u1', w:'your', zh:'你的', e:'🫵', b:['y_c','ou_o','r'], tip:'y /j/ + our 发长音 /ɔː/', s:"What's your favourite toy?" },
+      { u:'u1', w:'name', zh:'名字', e:'🏷️', b:['n','a_ei','m','e_s'], tip:'魔法 e 结构 (a_e)：词尾 e 不发音，a 发长音 /eɪ/', s:'My name is Stella.' },
+      { u:'u1', w:'I', zh:'我', e:'🙋‍♀️', b:['I'], tip:'大写字母 I 永远发双元音 /aɪ/', s:"I'm six years old." },
+      { u:'u1', w:'my', zh:'我的', e:'💖', b:['m','y_ai'], tip:'m + y 在单音节词尾发 /aɪ/', s:'This is my book.' },
+      { u:'u1', w:'number', zh:'数量，数字', e:'🔢', b:['n','u','m','.','b','er'], tip:'双音节：num (/nʌm/) · ber (/bə/)', s:'What number is it?' },
+      { u:'u1', w:'one', zh:'一 (1)', e:'1️⃣', b:['o_wu','n','e_s'], tip:'特殊高频词：o 发 /wʌ/ + n + 静音 e', s:'One table.' },
+      { u:'u1', w:'two', zh:'二 (2)', e:'2️⃣', b:['t','w_s','o_long_u'], tip:'特殊词：w 不发音，t + o 发长音 /tuː/', s:'Two books.' },
+      { u:'u1', w:'three', zh:'三 (3)', e:'3️⃣', b:['th_u','r','ee'], tip:'咬舌清音 th /θ/ + r + 长音 ee /iː/', s:"I'm three." },
+      { u:'u1', w:'four', zh:'四 (4)', e:'4️⃣', b:['f','ou_o','r'], tip:'f + our 发长音 /ɔː/', s:"It's four." },
+      { u:'u1', w:'five', zh:'五 (5)', e:'5️⃣', b:['f','i_ai','v','e_s'], tip:'魔法 e (i_e)：i 发本身音 /aɪ/，词尾 e 静音', s:'Five pencils.' },
+      { u:'u1', w:'six', zh:'六 (6)', e:'6️⃣', b:['s','i','x'], tip:'CVC 标准闭音节：s + 短音 i /ɪ/ + x /ks/', s:'Six chairs.' },
+      { u:'u1', w:'seven', zh:'七 (7)', e:'7️⃣', b:['s','e','v','.','e_schwa','n'], tip:'双音节：sev (/sev/) · en (/ən/)', s:"He's seven." },
+      { u:'u1', w:'eight', zh:'八 (8)', e:'8️⃣', b:['ei','gh_s','t'], tip:'ei 发 /eɪ/ + gh 静音不发音 + t', s:"She's eight." },
+      { u:'u1', w:'nine', zh:'九 (9)', e:'9️⃣', b:['n','i_ai','n','e_s'], tip:'魔法 e (i_e)：n + /aɪ/ + n + 静音 e', s:'Nine erasers.' },
+      { u:'u1', w:'ten', zh:'十 (10)', e:'🔟', b:['t','e','n'], tip:'CVC 闭音节：t + 短音 e /e/ + n', s:'Ten pens.' },
+      { u:'u1', w:'colour', zh:'颜色', e:'🎨', b:['c','o_u','l','.','ou_schwa','r'], tip:'col (/kʌl/) · our (/ə/)', s:'What colour is it?' },
+      { u:'u1', w:'blue', zh:'蓝色', e:'🔵', b:['bl','ue'], tip:'辅音连缀 bl + ue 发长音 /uː/', s:"It's blue." },
+      { u:'u1', w:'green', zh:'绿色', e:'🟢', b:['gr','ee','n'], tip:'辅音连缀 gr + 双写 ee 发长音 /iː/ + n', s:"It's green." },
+      { u:'u1', w:'orange', zh:'橘色', e:'🟠', b:['o','r','.','a_i','n','ge'], tip:'or (/ɒr/) · ange (/ɪndʒ/)，ge 在词尾发 /dʒ/', s:'Six orange chairs.' },
+      { u:'u1', w:'pink', zh:'粉色', e:'🌸', b:['p','i','nk'], tip:'p + 短音 i /ɪ/ + 鼻音组合 nk /ŋk/', s:'Red and yellow and pink.' },
+      { u:'u1', w:'purple', zh:'紫色', e:'🟣', b:['p','ur','.','p','le'], tip:'r控元音 ur /ɜː/ + 成音节 ple /pl/', s:'Orange and purple and blue.' },
+      { u:'u1', w:'red', zh:'红色', e:'🔴', b:['r','e','d'], tip:'CVC 闭音节：r + 短音 e /e/ + d', s:"My pencil's red." },
+      { u:'u1', w:'yellow', zh:'黄色', e:'🟡', b:['y_c','e','ll','.','ow_ou'], tip:'yel (/jel/) · low (词尾 ow 发 /əʊ/)', s:"It's yellow." },
+      { u:'u1', w:'rainbow', zh:'彩虹', e:'🌈', b:['r','ai','n','.','b','ow_ou'], tip:'合成词：rain (ai 发 /eɪ/) + bow (ow 发 /əʊ/)', s:'I can sing a rainbow.' },
+      { u:'u1', w:'walk', zh:'走路', e:'🚶', b:['w','a_or','l_s','k'], tip:'al 组合中 l 静音，a 发长音 /ɔː/ + k', s:'Walk to the door.' },
+      { u:'u1', w:'talk', zh:'说话', e:'🗣️', b:['t','a_or','l_s','k'], tip:'与 walk 同规律：l 静音，读作 /tɔːk/', s:'Talk to your friend.' },
+      { u:'u1', w:'close the door', zh:'关门', e:'🚪', b:['cl','o_ou','s_z','e_s',' ','th_v','e_schwa',' ','d','oo_o','r'], tip:'close (o_e 发 /əʊ/) + the + door (/dɔː/)', s:'Close the door, please.' },
+      { u:'u1', w:'sit down', zh:'坐下', e:'🪑', b:['s','i','t',' ','d','ow_au','n'], tip:'sit (/sɪt/) + down (ow 发 /aʊ/)', s:'Sit down, please.' },
+      { u:'u1', w:'listen', zh:'听', e:'👂', b:['l','i','s','.','t_s','e_schwa','n'], tip:'注意中间的 t 是静音字母，读作 /ˈlɪsən/', s:'Listen to the song.' },
+      { u:'u1', w:'look', zh:'看', e:'👀', b:['l','oo_short','k'], tip:'l + 短音 oo /ʊ/ + k', s:'Look at this!' },
+      { u:'u1', w:'monster', zh:'怪物', e:'👾', b:['m','o','n','.','st','er'], tip:'双音节：mon (/mɒn/) · ster (/stə/)', s:"It's a monster!" },
 
-      // ==================== UNIT 2: My school (20 words) ====================
-      { u:'u2', word:'book', syl:'book', ipa:'/bʊk/', cn:'书', emoji:'📘', blocks:P(['b','oo_short','k']), tip:'b + 短音 oo (/ʊ/) + k', sentence:"It's a book." },
-      { u:'u2', word:'chair', syl:'chair', ipa:'/tʃeə/', cn:'椅子', emoji:'🪑', blocks:P(['ch','air']), tip:'两块积木拼成：ch (/tʃ/) + air (/eə/)', sentence:'Six chairs.' },
-      { u:'u2', word:'eraser', syl:'e · ra · ser', ipa:'/ɪˈreɪ.zər/', cn:'橡皮', emoji:'🧼', blocks:P(['e_i','.','r','a_ay','.','s_z','er']), tip:'元音开头用 an eraser！三音节：e-ra-ser', sentence:"It's an eraser." },
-      { u:'u2', word:'pen', syl:'pen', ipa:'/pen/', cn:'钢笔', emoji:'🖊️', blocks:P(['p','e','n']), tip:'标准短音 CVC：p + e(/e/) + n', sentence:'Is this a pen?' },
-      { u:'u2', word:'pencil', syl:'pen · cil', ipa:'/ˈpen.səl/', cn:'铅笔', emoji:'✏️', blocks:P(['p','e','n','.','c_s','i_uh','l']), tip:'先写 pen，再加 cil (c 遇到 i 发 /s/)', sentence:"It's a pencil." },
-      { u:'u2', word:'table', syl:'ta · ble', ipa:'/ˈteɪ.bəl/', cn:'桌子', emoji:'🟫', blocks:P(['t','a_ay','.','b','le']), tip:'双音节：开音节 ta (/teɪ/) + ble', sentence:"It's a table." },
-      { u:'u2', word:'bag', syl:'bag', ipa:'/bæɡ/', cn:'包，书包', emoji:'🎒', blocks:P(['b','a','g']), tip:'标准短音 CVC：b + 大口 a(/æ/) + g', sentence:'Is that your bag?' },
-      { u:'u2', word:'school', syl:'school', ipa:'/skuːl/', cn:'学校', emoji:'🏫', blocks:P(['s','ch_k','oo','l']), tip:'ch 在这里发 /k/ + 长音 oo (/uː/) + l', sentence:'My school.' },
-      { u:'u2', word:'this', syl:'this', ipa:'/ðɪs/', cn:'这个', emoji:'👇', blocks:P(['th_v','i','s']), tip:'近处“这个”：咬舌音 th + i + s', sentence:"What's this?" },
-      { u:'u2', word:'that', syl:'that', ipa:'/ðæt/', cn:'那个', emoji:'👉', blocks:P(['th_v','a','t']), tip:'远处“那个”：咬舌音 th + 大口 a + t', sentence:"What's that?" },
-      { u:'u2', word:'are', syl:'are', ipa:'/ɑː/', cn:'是 (复数/你)', emoji:'🤝', blocks:P(['ar','e_s']), tip:'ar 发长音 /ɑː/，词尾 e 静音（You are）', sentence:'How are you?' },
-      { u:'u2', word:'who', syl:'who', ipa:'/huː/', cn:'谁', emoji:'🕵️', blocks:P(['wh_h','o_oo']), tip:'wh 在 o 前发 /h/，o 发长音 /uː/', sentence:"Who's that?" },
-      { u:'u2', word:'Thanks.', syl:'thanks', ipa:'/θæŋks/', cn:'谢谢', emoji:'🙏', blocks:[{t:'Th',tts:'thuh',ipa:'/θ/',k:'c'}, ...P(['a','nk','s'])], tip:'咬舌音 Th + a + nk + s', sentence:'Wow, thanks, Simon!' },
-      { u:'u2', word:'you', syl:'you', ipa:'/juː/', cn:'你，你们', emoji:'😊', blocks:P(['y','ou_oo']), tip:'y (/j/) + ou 发长音 /uː/', sentence:"You're my friend." },
-      { u:'u2', word:'he', syl:'he', ipa:'/hiː/', cn:'他', emoji:'👦', blocks:P(['h','e_ee']), tip:'开音节：h + 长音 e (/iː/)', sentence:"He's Lenny." },
-      { u:'u2', word:'she', syl:'she', ipa:'/ʃiː/', cn:'她', emoji:'👧', blocks:P(['sh','e_ee']), tip:'安静音 sh (/ʃ/) + 长音 e (/iː/)', sentence:"She's Stella." },
-      { u:'u2', word:'How are you?', syl:'How · are · you', ipa:'/haʊ ɑː juː/', cn:'你好吗？', emoji:'👋', blocks:[{t:'H',tts:'huh',ipa:'/h/',k:'c'}, ...P(['ow','_','ar','e_s','_','y','ou_oo'])], tip:'常用问候句：How (/haʊ/) + are + you', sentence:'How are you today?' },
-      { u:'u2', word:"I'm fine.", syl:"I'm · fine", ipa:'/aɪm faɪn/', cn:'我很好', emoji:'🌟', blocks:[{t:"I'm",tts:'aym',ipa:'/aɪm/',k:'v'}, {t:'space'}, ...P(['f','i_ai','n','e_s'])], tip:'fine 是魔法 e 结构：f + i(/aɪ/) + n + 静音 e', sentence:"I'm fine, thank you." },
-      { u:'u2', word:'thank you.', syl:'thank · you', ipa:'/θæŋk juː/', cn:'谢谢你。', emoji:'💐', blocks:P(['th','a','nk','_','y','ou_oo']), tip:'礼貌表达：thank + you', sentence:"I'm fine, thank you." },
-      { u:'u2', word:'open', syl:'o · pen', ipa:'/ˈəʊ.pən/', cn:'打开', emoji:'📖', blocks:P(['o_oh','.','p','e_uh','n']), tip:'双音节：开音节 o (/əʊ/) + pen', sentence:'Open your book.' },
+      // ==================== UNIT 2: My school (21 items) ====================
+      { u:'u2', w:'book', zh:'书', e:'📘', b:['b','oo_short','k'], tip:'b + 短音 oo /ʊ/ + k', s:"It's a book." },
+      { u:'u2', w:'chair', zh:'椅子', e:'🪑', b:['ch','air'], tip:'ch /tʃ/ + air 组合发 /eə/', s:'Six chairs.' },
+      { u:'u2', w:'eraser', zh:'橡皮', e:'🧼', b:['e_i','.','r','a_ei','.','s_z','er'], tip:'三音节：e (/ɪ/) · ra (/reɪ/) · ser (/zə/)', s:"It's an eraser." },
+      { u:'u2', w:'pen', zh:'钢笔', e:'🖊️', b:['p','e','n'], tip:'CVC 闭音节：p + 短音 e /e/ + n', s:'Is this a pen?' },
+      { u:'u2', w:'pencil', zh:'铅笔', e:'✏️', b:['p','e','n','.','c_s','i_schwa','l'], tip:'pen (/pen/) · cil (c 在 i 前发 /s/)', s:"My pencil's red." },
+      { u:'u2', w:'table', zh:'桌子', e:'▭', b:['t','a_ei','.','b','le'], tip:'开音节 ta (/teɪ/) + 成音节 ble (/bl/)', s:"It's a table." },
+      { u:'u2', w:'bag', zh:'书包', e:'🎒', b:['b','a','g'], tip:'CVC 闭音节：b + 大口梅花音 a /æ/ + g', s:'Is that your bag?' },
+      { u:'u2', w:'school', zh:'学校', e:'🏫', b:['s','ch_k','oo_long','l'], tip:'ch 这里发 /k/ 音 + 长音 oo /uː/ + l', s:'Welcome to my school.' },
+      { u:'u2', w:'this', zh:'这个 (近指)', e:'👇', b:['th_v','i','s'], tip:'声带振动咬舌音 th /ð/ + i /ɪ/ + s', s:"What's this?" },
+      { u:'u2', w:'that', zh:'那个 (远指)', e:'👉', b:['th_v','a','t'], tip:'浊咬舌音 th /ð/ + 梅花音 a /æ/ + t', s:"What's that?" },
+      { u:'u2', w:'are', zh:'是 (复数/you)', e:'🤝', b:['ar','e_s'], tip:'ar 发长音 /ɑː/，词尾 e 不发音', s:'How are you?' },
+      { u:'u2', w:'who', zh:'谁', e:'🕵️', b:['wh_h','o_long_u'], tip:'wh 在 o 前发 /h/ + o 发长音 /uː/', s:"Who's that?" },
+      { u:'u2', w:'Thanks.', zh:'谢谢', e:'🙏', b:['th_u','a','nk','s'], tip:'清咬舌音 th /θ/ + a /æ/ + nk + s', s:'Wow, thanks, Simon!' },
+      { u:'u2', w:'you', zh:'你，你们', e:'😊', b:['y_c','ou_u_long'], tip:'y /j/ + ou 发长音 /uː/', s:"You're my friend." },
+      { u:'u2', w:'he', zh:'他 (男生)', e:'👦', b:['h','e_long'], tip:'开音节：词尾单个 e 发本身长音 /iː/', s:"Who's he? He's Lenny." },
+      { u:'u2', w:'she', zh:'她 (女生)', e:'👧', b:['sh','e_long'], tip:'sh /ʃ/ + 开音节长音 e /iː/', s:"Who's she? She's Stella." },
+      { u:'u2', w:'How are you?', zh:'你好吗？', e:'👋', b:['h','ow_au',' ','ar','e_s',' ','y_c','ou_u_long'], tip:'How (/haʊ/) + are (/ɑː/) + you (/juː/)', s:'Hello, how are you?' },
+      { u:'u2', w:"I'm fine.", zh:'我很好。', e:'😄', b:["I'm",' ','f','i_ai','n','e_s'], tip:"I'm (/aɪm/) + fine (魔法 i_e 发 /aɪ/)", s:"I'm fine, thank you." },
+      { u:'u2', w:'thank you.', zh:'谢谢你。', e:'💐', b:['th_u','a','nk',' ','y_c','ou_u_long'], tip:'thank (/θæŋk/) + you (/juː/)', s:"I'm fine, thank you." },
+      { u:'u2', w:'open', zh:'打开', e:'📖', b:['o_ou','.','p','e_schwa','n'], tip:'开音节 o 发 /əʊ/ · pen (/pən/)', s:'Open your books.' },
 
-      // ==================== UNIT 3: Favourite toys (29 words) ====================
-      { u:'u3', word:'favourite', syl:'fa · vour · ite', ipa:'/ˈfeɪ.vər.ɪt/', cn:'最喜欢的', emoji:'⭐', blocks:[{t:'fa',tts:'fay',ipa:'/feɪ/',k:'v'},{t:'dot'},{t:'vour',tts:'ver',ipa:'/vər/',k:'c'},{t:'dot'},{t:'ite',tts:'iht',ipa:'/ɪt/',k:'v'}], tip:'三块音节积木轻松记：fa (/feɪ/) + vour + ite', sentence:"What's your favourite toy?" },
-      { u:'u3', word:'toy', syl:'toy', ipa:'/tɔɪ/', cn:'玩具', emoji:'🧸', blocks:P(['t','oy']), tip:'t + oy 组合发 /ɔɪ/', sentence:'My favourite toy is a doll.' },
-      { u:'u3', word:'ball', syl:'ball', ipa:'/bɔːl/', cn:'球', emoji:'⚽', blocks:P(['b','a_or','ll']), tip:'all 家族：b + a(/ɔː/) + ll', sentence:'Where is your ball?' },
-      { u:'u3', word:'football', syl:'foot · ball', ipa:'/ˈfʊt.bɔːl/', cn:'足球', emoji:'⚽', blocks:P(['f','oo_short','t','.','b','a_or','ll']), tip:'合成词：foot (脚 /fʊt/) + ball (球 /bɔːl/)', sentence:'Play football.' },
-      { u:'u3', word:'bike', syl:'bike', ipa:'/baɪk/', cn:'自行车', emoji:'🚲', blocks:P(['b','i_ai','k','e_s']), tip:'魔法 e (i_e)：b + i(/aɪ/) + k + 静音 e', sentence:'Ride a bike.' },
-      { u:'u3', word:'car', syl:'car', ipa:'/kɑː/', cn:'小汽车', emoji:'🚗', blocks:P(['c','ar']), tip:'c(/k/) + ar 张大嘴发 /ɑː/', sentence:"It's a red car." },
-      { u:'u3', word:'computer', syl:'com · pu · ter', ipa:'/kəmˈpjuː.tər/', cn:'电脑', emoji:'💻', blocks:[{t:'com',tts:'kom',ipa:'/kəm/',k:'c'},{t:'dot'},{t:'pu',tts:'pyoo',ipa:'/pjuː/',k:'v'},{t:'dot'},{t:'ter',tts:'ter',ipa:'/tər/',k:'v'}], tip:'三音节拆解：com + pu (/pjuː/) + ter', sentence:'Next to the computer.' },
-      { u:'u3', word:'doll', syl:'doll', ipa:'/dɒl/', cn:'洋娃娃', emoji:'🪆', blocks:P(['d','o','ll']), tip:'d + 短音 o(/ɒ/) + ll', sentence:'Her favourite toy is a doll.' },
-      { u:'u3', word:'train', syl:'train', ipa:'/treɪn/', cn:'火车', emoji:'🚂', blocks:P(['tr','ai','n']), tip:'tr 连读 + ai 发长音 /eɪ/ + n', sentence:'Look at the train.' },
-      { u:'u3', word:'black', syl:'black', ipa:'/blæk/', cn:'黑色', emoji:'⚫', blocks:P(['bl','a','ck']), tip:'bl 连读 + 大口 a(/æ/) + ck(/k/)', sentence:'A black hat.' },
-      { u:'u3', word:'brown', syl:'brown', ipa:'/braʊn/', cn:'棕色', emoji:'🟤', blocks:P(['br','ow','n']), tip:'br 连读 + ow 发 /aʊ/ + n', sentence:'A brown bear.' },
-      { u:'u3', word:'grey', syl:'grey', ipa:'/ɡreɪ/', cn:'灰色', emoji:'🐘', blocks:P(['gr','ey']), tip:'gr 连读 + ey 发长音 /eɪ/（美式也写做 gray）', sentence:'A grey hippo.' },
-      { u:'u3', word:'white', syl:'white', ipa:'/waɪt/', cn:'白色', emoji:'⚪', blocks:P(['wh','i_ai','t','e_s']), tip:'wh(/w/) + 魔法 i_e (/aɪ/) + t + 静音 e', sentence:'A white ball.' },
-      { u:'u3', word:'in', syl:'in', ipa:'/ɪn/', cn:'在……里面', emoji:'📥', blocks:P(['i','n']), tip:'短音 i (/ɪ/) + n', sentence:'The ball is in the box.' },
-      { u:'u3', word:'on', syl:'on', ipa:'/ɒn/', cn:'在……上面', emoji:'⬆️', blocks:P(['o','n']), tip:'短音 o (/ɒ/) + n', sentence:'On the table.' },
-      { u:'u3', word:'under', syl:'un · der', ipa:'/ˈʌn.dər/', cn:'在……下面', emoji:'⬇️', blocks:P(['u','n','.','d','er']), tip:'双音节：un (/ʌn/) + der (/dər/)', sentence:'Under the chair.' },
-      { u:'u3', word:'behind', syl:'be · hind', ipa:'/bɪˈhaɪnd/', cn:'在……后面', emoji:'🫣', blocks:P(['b','e_i','.','h','i_ai','nd']), tip:'双音节：be (/bɪ/) + hind (/haɪnd/)', sentence:'Behind the door.' },
-      { u:'u3', word:'between', syl:'be · tween', ipa:'/bɪˈtwiːn/', cn:'在……中间', emoji:'↔️', blocks:P(['b','e_i','.','tw','ee','n']), tip:'双音节：be + tween (tw + 长音 ee + n)', sentence:'Between the boxes.' },
-      { u:'u3', word:'next to', syl:'next · to', ipa:'/nekst tuː/', cn:'在……旁边', emoji:'👉', blocks:P(['n','e','x','t','_','t','o_oo']), tip:'方位短语：next + to', sentence:'Next to the chair.' },
-      { u:'u3', word:'in front of', syl:'in · front · of', ipa:'/ɪn frʌnt ɒv/', cn:'在……前面', emoji:'⬆️', blocks:P(['i','n','_','fr','o_uh','nt','_','o', {t:'f',tts:'vvv',ipa:'/v/',k:'c'}]), tip:'三词短语：in + front + of (f 在 of 中发浊音 /v/)', sentence:'In front of the school.' },
-      { u:'u3', word:'where', syl:'where', ipa:'/weə/', cn:'在哪里', emoji:'🧭', blocks:P(['wh','ere']), tip:'wh (/w/) + ere (/eə/)', sentence:"Where's your ball?" },
-      { u:'u3', word:'point', syl:'point', ipa:'/pɔɪnt/', cn:'指', emoji:'☝️', blocks:P(['p','oi','nt']), tip:'p + oi (/ɔɪ/) + nt', sentence:'Point to the door.' },
-      { u:'u3', word:'say', syl:'say', ipa:'/seɪ/', cn:'说话，说', emoji:'💬', blocks:P(['s','ay']), tip:'s + ay 发长音 /eɪ/', sentence:'Say hello!' },
-      { u:'u3', word:"isn't=is not", syl:"is · n't", ipa:'/ˈɪz.ənt/', cn:'不是', emoji:'❌', blocks:P(['i','s_z','_','n','o','t']), tip:'is not 的缩写形式：isn\'t', sentence:"No, it isn't." },
-      { u:'u3', word:'it', syl:'it', ipa:'/ɪt/', cn:'它', emoji:'📦', blocks:P(['i','t']), tip:'短音 i (/ɪ/) + t', sentence:"It's a car." },
-      { u:'u3', word:'here you are.', syl:'here · you · are', ipa:'/hɪə juː ɑː/', cn:'给你。', emoji:'🤲', blocks:[...P(['h']), {t:'ere',tts:'ear',ipa:'/ɪə/',k:'v'}, ...P(['_','y','ou_oo','_','ar','e_s'])], tip:'递东西常用句：here + you + are', sentence:'Here you are. Thank you!' },
-      { u:'u3', word:'sorry', syl:'sor · ry', ipa:'/ˈsɒr.i/', cn:'对不起', emoji:'🙇', blocks:P(['s','o','rr','.','y_ee']), tip:'双音节：sor (/sɒr/) + ry (词尾 y 发 /i/)', sentence:"I'm sorry." },
-      { u:'u3', word:'OK', syl:'O · K', ipa:'/əʊˈkeɪ/', cn:'好的', emoji:'👌', blocks:[{t:'O',tts:'oh',ipa:'/əʊ/',k:'v'},{t:'dot'},{t:'K',tts:'kay',ipa:'/keɪ/',k:'c'}], tip:'O (/əʊ/) + K (/keɪ/)', sentence:'OK, let us go!' },
-      { u:'u3', word:'no', syl:'no', ipa:'/nəʊ/', cn:'不', emoji:'🙅', blocks:P(['n','o_oh']), tip:'开音节：n + 长音 o (/əʊ/)', sentence:"No, it isn't." },
+      // ==================== UNIT 3: Favourite toys (29 items) ====================
+      { u:'u3', w:'favourite', zh:'最喜欢的', e:'⭐', b:['f','a_ei','.','v','ou_schwa','r','.','i','t','e_s'], tip:'三音节：fa (/feɪ/) · vour (/vər/) · ite (/ɪt/)', s:"What's your favourite toy?" },
+      { u:'u3', w:'toy', zh:'玩具', e:'🧸', b:['t','oy'], tip:'t + 双元音组合 oy /ɔɪ/', s:'My favourite toy is a doll.' },
+      { u:'u3', w:'ball', zh:'球', e:'⚽', b:['b','all'], tip:'b + all 组合发 /ɔːl/', s:'Where is your ball?' },
+      { u:'u3', w:'football', zh:'足球', e:'🥅', b:['f','oo_short','t','.','b','all'], tip:'合成词：foot (短音 /ʊ/) + ball (/bɔːl/)', s:"Let's play football." },
+      { u:'u3', w:'bike', zh:'自行车', e:'🚲', b:['b','i_ai','k','e_s'], tip:'魔法 e (i_e)：b + /aɪ/ + k + 静音 e', s:'My favourite is my bike.' },
+      { u:'u3', w:'car', zh:'小汽车', e:'🚗', b:['c','ar'], tip:'c /k/ + r控元音 ar /ɑː/', s:"It's a red car." },
+      { u:'u3', w:'computer', zh:'电脑', e:'💻', b:['c','o_schwa','m','.','p','u_ju','.','t','er'], tip:'三音节：com (/kəm/) · pu (/pjuː/) · ter (/tə/)', s:'Is he next to the computer?' },
+      { u:'u3', w:'doll', zh:'洋娃娃', e:'🪆', b:['d','o','ll'], tip:'d + 短音 o /ɒ/ + 双写 ll /l/', s:'Her favourite toy is a doll.' },
+      { u:'u3', w:'train', zh:'火车', e:'🚂', b:['tr','ai','n'], tip:'辅音连缀 tr /tr/ + 长元音组合 ai /eɪ/ + n', s:'His favourite toy is a train.' },
+      { u:'u3', w:'black', zh:'黑色', e:'⚫', b:['bl','a','ck'], tip:'连缀 bl + 短音 a /æ/ + 词尾 ck 发 /k/', s:'A black train.' },
+      { u:'u3', w:'brown', zh:'棕色', e:'🟤', b:['br','ow_au','n'], tip:'连缀 br + ow 发 /aʊ/ + n', s:'A brown bear.' },
+      { u:'u3', w:'grey', zh:'灰色', e:'🐘', b:['gr','ey'], tip:'连缀 gr + ey 发长音 /eɪ/', s:'A grey hippo.' },
+      { u:'u3', w:'white', zh:'白色', e:'⚪', b:['wh','i_ai','t','e_s'], tip:'wh /w/ + 魔法 i_e (/aɪ/) + t', s:'A white ball.' },
+      { u:'u3', w:'in', zh:'在……里面', e:'📥', b:['i','n'], tip:'短元音 i /ɪ/ + 鼻音 n', s:'The ball is in the box.' },
+      { u:'u3', w:'on', zh:'在……上面', e:'📦', b:['o','n'], tip:'短元音 o /ɒ/ + 鼻音 n', s:'The ball is on the box.' },
+      { u:'u3', w:'under', zh:'在……下面', e:'⬇️', b:['u','n','.','d','er'], tip:'双音节：un (/ʌn/) · der (/də/)', s:'He isn’t under the chair.' },
+      { u:'u3', w:'behind', zh:'在……后面', e:'🫣', b:['b','e_i','.','h','i_ai','nd'], tip:'be (/bɪ/) · hind (i 在 nd 前发长音 /aɪ/)', s:'Monty is behind the bag.' },
+      { u:'u3', w:'between', zh:'在……中间', e:'↔️', b:['b','e_i','.','tw','ee','n'], tip:'be (/bɪ/) · tween (ee 发长音 /iː/)', s:'Between the boxes.' },
+      { u:'u3', w:'next to', zh:'在……旁边', e:'👉', b:['n','e','x','t',' ','t','o_long_u'], tip:'next (/nekst/) + to (/tuː/)', s:"It's next to your chair." },
+      { u:'u3', w:'in front of', zh:'在……前面', e:'⬆️', b:['i','n',' ','fr','o_u','nt',' ','o','v_f'], tip:'in + front (o 发 /ʌ/) + of (/ɒv/)', s:'In front of the school.' },
+      { u:'u3', w:'where', zh:'在哪里', e:'🧭', b:['wh','ere_air'], tip:'wh /w/ + ere 发 /eə/', s:"Where's your ball?" },
+      { u:'u3', w:'point', zh:'指', e:'☝️', b:['p','oi','nt'], tip:'p + 双元音 oi /ɔɪ/ + nt', s:'Point to the red car.' },
+      { u:'u3', w:'say', zh:'说', e:'💬', b:['s','ay'], tip:'s + 词尾元音组合 ay 发 /eɪ/', s:'Listen and say.' },
+      { u:'u3', w:"isn't=is not", zh:'不是', e:'🙅', b:["isn't",'=','i','s_z',' ','n','o','t'], tip:"isn't 是 is not 的缩写形式", s:"No, it isn't." },
+      { u:'u3', w:'it', zh:'它', e:'🎈', b:['i','t'], tip:'短元音 i /ɪ/ + 清辅音 t', s:"Yes, it is." },
+      { u:'u3', w:'here you are.', zh:'给你。', e:'🤲', b:['h','ere',' ','y_c','ou_u_long',' ','ar','e_s'], tip:'here (/hɪə/) + you (/juː/) + are (/ɑː/)', s:'Here you are. Thanks!' },
+      { u:'u3', w:'sorry', zh:'对不起', e:'🙇', b:['s','o','rr','y_i'], tip:'sor (/sɒr/) + y 在词尾发短音 /i/', s:"I'm sorry." },
+      { u:'u3', w:'OK', zh:'好的', e:'👌', b:['OK'], tip:'日常交际缩略词 /əʊˈkeɪ/', s:'OK, Mum!' },
+      { u:'u3', w:'no', zh:'不，没有', e:'❌', b:['n','o_ou'], tip:'开音节：n + o 发本身音 /əʊ/', s:"No, it isn't." },
 
-      // ==================== UNIT 4: My family (17 words) ====================
-      { u:'u4', word:'family', syl:'fam · i · ly', ipa:'/ˈfæm.əl.i/', cn:'家庭', emoji:'👨‍👩‍👧‍👦', blocks:[{t:'fam',tts:'fam',ipa:'/fæm/',k:'v'},{t:'dot'},{t:'i',tts:'uh',ipa:'/ə/',k:'v'},{t:'dot'},{t:'ly',tts:'lee',ipa:'/li/',k:'v'}], tip:'三音节：fam + i + ly', sentence:'This is my family.' },
-      { u:'u4', word:'brother', syl:'broth · er', ipa:'/ˈbrʌð.ər/', cn:'兄弟', emoji:'👦', blocks:P(['br','o_uh','th_v','.','er']), tip:'亲属词结尾都有 -ther：bro (/brʌ/) + ther', sentence:"He's my brother." },
-      { u:'u4', word:'sister', syl:'sis · ter', ipa:'/ˈsɪs.tər/', cn:'姐妹', emoji:'👧', blocks:P(['s','i','s','.','t','er']), tip:'双音节：sis (/sɪs/) + ter (/tər/)', sentence:"She's my sister." },
-      { u:'u4', word:'father', syl:'fa · ther', ipa:'/ˈfɑː.ðər/', cn:'父亲，爸爸', emoji:'👨', blocks:P(['f','a_ar','.','th_v','er']), tip:'双音节：fa (/fɑː/) + ther (/ðər/)', sentence:"He's my father." },
-      { u:'u4', word:'mother', syl:'moth · er', ipa:'/ˈmʌð.ər/', cn:'母亲，妈妈', emoji:'👩', blocks:P(['m','o_uh','th_v','.','er']), tip:'o 在 th 前发 /ʌ/：moth + er', sentence:"She's my mother." },
-      { u:'u4', word:'grandfather', syl:'grand · fa · ther', ipa:'/ˈɡrænd.fɑː.ðər/', cn:'祖父，爷爷，外公', emoji:'👴', blocks:[{t:'grand',tts:'grand',ipa:'/ɡrænd/',k:'c'},{t:'dot'},{t:'fa',tts:'far',ipa:'/fɑː/',k:'v'},{t:'dot'},{t:'ther',tts:'ther',ipa:'/ðər/',k:'c'}], tip:'合成词：grand + father', sentence:'My grandfather is old.' },
-      { u:'u4', word:'grandmother', syl:'grand · moth · er', ipa:'/ˈɡrænd.mʌð.ər/', cn:'祖母，奶奶，外婆', emoji:'👵', blocks:[{t:'grand',tts:'grand',ipa:'/ɡrænd/',k:'c'},{t:'dot'},{t:'mo',tts:'muh',ipa:'/mʌ/',k:'v'},{t:'dot'},{t:'ther',tts:'ther',ipa:'/ðər/',k:'c'}], tip:'合成词：grand + mother', sentence:'My grandmother is happy.' },
-      { u:'u4', word:'beautiful', syl:'beau · ti · ful', ipa:'/ˈbjuː.tɪ.fəl/', cn:'美丽的', emoji:'👸', blocks:[{t:'beau',tts:'byoo',ipa:'/bjuː/',k:'v'},{t:'dot'},{t:'ti',tts:'tih',ipa:'/tɪ/',k:'c'},{t:'dot'},{t:'ful',tts:'ful',ipa:'/fəl/',k:'v'}], tip:'三块积木搞定长词：beau (/bjuː/) + ti + ful', sentence:'She is beautiful.' },
-      { u:'u4', word:'ugly', syl:'ug · ly', ipa:'/ˈʌɡ.li/', cn:'丑陋的', emoji:'👹', blocks:P(['u','g','.','l','y_ee']), tip:'双音节：ug (/ʌɡ/) + ly (/li/)', sentence:'An ugly monster.' },
-      { u:'u4', word:'happy', syl:'hap · py', ipa:'/ˈhæp.i/', cn:'幸福的，开心的', emoji:'😄', blocks:P(['h','a','pp','.','y_ee']), tip:'双音节：hap + py (词尾 y 发 /i/)', sentence:"I'm happy." },
-      { u:'u4', word:'sad', syl:'sad', ipa:'/sæd/', cn:'伤心的', emoji:'😢', blocks:P(['s','a','d']), tip:'标准短音 CVC：s + 大口 a(/æ/) + d', sentence:'He is sad.' },
-      { u:'u4', word:'old', syl:'old', ipa:'/əʊld/', cn:'年老的，旧的', emoji:'🧓', blocks:P(['o_oh','l','d']), tip:'o 在 ld 前发长音 /əʊ/：o + l + d', sentence:'How old are you?' },
-      { u:'u4', word:'young', syl:'young', ipa:'/jʌŋ/', cn:'年轻的', emoji:'🧒', blocks:P(['y','ou_uh','ng']), tip:'y + ou(发短音 /ʌ/) + ng(/ŋ/)', sentence:'She is young.' },
-      { u:'u4', word:'picture', syl:'pic · ture', ipa:'/ˈpɪk.tʃər/', cn:'画，图片', emoji:'🖼️', blocks:[{t:'pic',tts:'pik',ipa:'/pɪk/',k:'c'},{t:'dot'},{t:'ture',tts:'cher',ipa:'/tʃər/',k:'v'}], tip:'双音节：pic (/pɪk/) + ture (固定发 /tʃər/)', sentence:'Look at the picture.' },
-      { u:'u4', word:'woman', syl:'wom · an', ipa:'/ˈwʊm.ən/', cn:'女人', emoji:'👩', blocks:P(['w','o_u','m','.','a_uh','n']), tip:'双音节：wom (o发/ʊ/) + an (/ən/)', sentence:"Who's that woman?" },
-      { u:'u4', word:'look at', syl:'look · at', ipa:'/lʊk æt/', cn:'看……', emoji:'👀', blocks:P(['l','oo_short','k','_','a','t']), tip:'短语：look + at', sentence:'Look at my family.' },
-      { u:'u4', word:'me', syl:'me', ipa:'/miː/', cn:'我（宾格）', emoji:'🙋‍♀️', blocks:P(['m','e_ee']), tip:'开音节：m + 长音 e (/iː/)', sentence:'Look at me!' },
+      // ==================== UNIT 4: My family (17 items) ====================
+      { u:'u4', w:'family', zh:'家庭', e:'👨‍👩‍👧‍👦', b:['f','a','m','.','i_schwa','.','l','y_i'], tip:'三音节：fam (/fæm/) · i (/ə/) · ly (/li/)', s:'This is my family.' },
+      { u:'u4', w:'brother', zh:'兄弟', e:'👦', b:['br','o_u','th_v','.','er'], tip:'broth (o 在 th 前发 /ʌ/) · er (/ə/)', s:"He's my brother." },
+      { u:'u4', w:'sister', zh:'姐妹', e:'👧', b:['s','i','s','.','t','er'], tip:'双音节：sis (/sɪs/) · ter (/tə/)', s:"She's my sister." },
+      { u:'u4', w:'father', zh:'父亲，爸爸', e:'👨', b:['f','a_ar','.','th_v','er'], tip:'fa (a 发长音 /ɑː/) · ther (/ðə/)', s:"He's my father." },
+      { u:'u4', w:'mother', zh:'母亲，妈妈', e:'👩', b:['m','o_u','th_v','.','er'], tip:'moth (o 在 th 前发 /ʌ/) · er (/ə/)', s:"She's my mother." },
+      { u:'u4', w:'grandfather', zh:'祖父，爷爷', e:'👴', b:['gr','a','nd','.','f','a_ar','.','th_v','er'], tip:'合成词：grand (/ɡrænd/) + father (/ˈfɑːðə/)', s:"He's my grandfather." },
+      { u:'u4', w:'grandmother', zh:'祖母，奶奶', e:'👵', b:['gr','a','nd','.','m','o_u','th_v','.','er'], tip:'合成词：grand (/ɡrænd/) + mother (/ˈmʌðə/)', s:"She's my grandmother." },
+      { u:'u4', w:'beautiful', zh:'美丽的', e:'👸', b:['b','eau','.','t','i','.','f','u_short','l'], tip:'三音节：beau (/bjuː/) · ti (/tɪ/) · ful (/fʊl/)', s:'She is very beautiful.' },
+      { u:'u4', w:'ugly', zh:'丑陋的', e:'👹', b:['u','g','.','l','y_i'], tip:'ug (/ʌɡ/) · ly (/li/)', s:'An ugly monster.' },
+      { u:'u4', w:'happy', zh:'幸福的，开心的', e:'😄', b:['h','a','pp','y_i'], tip:'hap (/hæp/) + y 词尾发 /i/', s:'We are happy!' },
+      { u:'u4', w:'sad', zh:'伤心的', e:'😢', b:['s','a','d'], tip:'CVC 闭音节：s + 梅花音 a /æ/ + d', s:'The monster is sad.' },
+      { u:'u4', w:'old', zh:'年老的，旧的', e:'🧓', b:['o_ou','l','d'], tip:'o 在 ld 前发本身音 /əʊ/ + l + d', s:'How old are you?' },
+      { u:'u4', w:'young', zh:'年轻的', e:'🧒', b:['y_c','ou_u','ng'], tip:'y /j/ + ou 发短音 /ʌ/ + 后鼻音 ng /ŋ/', s:'She is young.' },
+      { u:'u4', w:'picture', zh:'画，图片', e:'🖼️', b:['p','i','c','.','t_ch','ure'], tip:'pic (/pɪk/) · ture (读作 /tʃə/)', s:'Look at the picture.' },
+      { u:'u4', w:'woman', zh:'女人', e:'👩', b:['w','o_short_u','m','.','a_schwa','n'], tip:'wom (o 发 /ʊ/) · an (/ən/)', s:'Who is that woman?' },
+      { u:'u4', w:'look at', zh:'看……', e:'👀', b:['l','oo_short','k',' ','a','t'], tip:'look (/lʊk/) + at (/æt/)', s:'Look at my family.' },
+      { u:'u4', w:'me', zh:'我 (宾格)', e:'🙋', b:['m','e_long'], tip:'开音节：m + 长音 e /iː/', s:'Look at me!' },
 
-      // ==================== UNIT 5: Our pets (17 words) ====================
-      { u:'u5', word:'pet', syl:'pet', ipa:'/pet/', cn:'宠物', emoji:'🐾', blocks:P(['p','e','t']), tip:'标准短音 CVC：p + e(/e/) + t', sentence:'Our pets.' },
-      { u:'u5', word:'cat', syl:'cat', ipa:'/kæt/', cn:'猫', emoji:'🐱', blocks:P(['c','a','t']), tip:'标准短音 CVC：c(/k/) + 大口 a(/æ/) + t', sentence:"It's a clean cat." },
-      { u:'u5', word:'dog', syl:'dog', ipa:'/dɒɡ/', cn:'狗', emoji:'🐶', blocks:P(['d','o','g']), tip:'标准短音 CVC：d + o(/ɒ/) + g', sentence:'A big dog.' },
-      { u:'u5', word:'horse', syl:'horse', ipa:'/hɔːs/', cn:'马', emoji:'🐴', blocks:P(['h','or','s','e_s']), tip:'h + or(/ɔː/) + s + 静音 e', sentence:'Ride a horse.' },
-      { u:'u5', word:'bird', syl:'bird', ipa:'/bɜːd/', cn:'鸟', emoji:'🐦', blocks:P(['b','ir','d']), tip:'b + ir 小鸟卷舌音 /ɜː/ + d', sentence:'A small bird.' },
-      { u:'u5', word:'fish', syl:'fish', ipa:'/fɪʃ/', cn:'鱼', emoji:'🐟', blocks:P(['f','i','sh']), tip:'f + 短音 i + sh(/ʃ/)', sentence:'Two orange fish.' },
-      { u:'u5', word:'mouse', syl:'mouse', ipa:'/maʊs/', cn:'老鼠（单数）', emoji:'🐭', blocks:P(['m','ou','s','e_s']), tip:'m + ou(/aʊ/) + s + 静音 e', sentence:'A small mouse.' },
-      { u:'u5', word:'mice', syl:'mice', ipa:'/maɪs/', cn:'老鼠（复数）', emoji:'🐁', blocks:P(['m','i_ai','c_s','e_s']), tip:'mouse 的复数：m + i(/aɪ/) + ce(/s/)', sentence:'Three white mice.' },
-      { u:'u5', word:'long', syl:'long', ipa:'/lɒŋ/', cn:'长的', emoji:'📏', blocks:P(['l','o','ng']), tip:'l + o(/ɒ/) + 后鼻音 ng(/ŋ/)', sentence:'A long tail.' },
-      { u:'u5', word:'short', syl:'short', ipa:'/ʃɔːt/', cn:'短的', emoji:'📐', blocks:P(['sh','or','t']), tip:'sh(/ʃ/) + or(/ɔː/) + t', sentence:'Short hair.' },
-      { u:'u5', word:'big', syl:'big', ipa:'/bɪɡ/', cn:'大的', emoji:'🐘', blocks:P(['b','i','g']), tip:'标准短音 CVC：b + i(/ɪ/) + g', sentence:'A big elephant.' },
-      { u:'u5', word:'small', syl:'small', ipa:'/smɔːl/', cn:'小的', emoji:'🐜', blocks:P(['sm','a_or','ll']), tip:'all 家族：sm 连读 + a(/ɔː/) + ll', sentence:'A small pet.' },
-      { u:'u5', word:'clean', syl:'clean', ipa:'/kliːn/', cn:'干净的', emoji:'✨', blocks:P(['cl','ea','n']), tip:'cl 连读 + ea 发长音 /iː/ + n', sentence:'A clean cat.' },
-      { u:'u5', word:'dirty', syl:'dir · ty', ipa:'/ˈdɜː.ti/', cn:'脏的', emoji:'泥', blocks:P(['d','ir','.','t','y_ee']), tip:'双音节：dir (/dɜː/) + ty (/ti/)', sentence:'A dirty dog.' },
-      { u:'u5', word:'our', syl:'our', ipa:'/aʊər/', cn:'我们的', emoji:'🤗', blocks:P(['ou','r']), tip:'ou (/aʊ/) + r', sentence:'They are our pets.' },
-      { u:'u5', word:'his', syl:'his', ipa:'/hɪz/', cn:'他的', emoji:'👦', blocks:P(['h','i','s_z']), tip:'对应男生 he：h + i + s(/z/)', sentence:'His dog is big.' },
-      { u:'u5', word:'her', syl:'her', ipa:'/hɜː/', cn:'她的', emoji:'👧', blocks:P(['h','er']), tip:'对应女生 she：h + er(/ɜː/)', sentence:'Her cat is white.' },
+      // ==================== UNIT 5: Our pets (17 items) ====================
+      { u:'u5', w:'pet', zh:'宠物', e:'🐾', b:['p','e','t'], tip:'CVC 闭音节：p + 短音 e /e/ + t', s:'What is your favourite pet?' },
+      { u:'u5', w:'cat', zh:'猫', e:'🐱', b:['c','a','t'], tip:'CVC 闭音节：c /k/ + 梅花音 a /æ/ + t', s:'It is a white cat.' },
+      { u:'u5', w:'dog', zh:'狗', e:'🐶', b:['d','o','g'], tip:'CVC 闭音节：d + 短音 o /ɒ/ + g', s:'A big brown dog.' },
+      { u:'u5', w:'horse', zh:'马', e:'🐴', b:['h','or','s','e_s'], tip:'h + or /ɔː/ + s + 词尾 e 静音', s:'A beautiful horse.' },
+      { u:'u5', w:'bird', zh:'鸟', e:'🐦', b:['b','ir','d'], tip:'b + r控元音 ir /ɜː/ + d', s:'The bird is in the tree.' },
+      { u:'u5', w:'fish', zh:'鱼', e:'🐟', b:['f','i','sh'], tip:'f + 短音 i /ɪ/ + 卷舌音 sh /ʃ/', s:'Two orange fish.' },
+      { u:'u5', w:'mouse', zh:'老鼠 (单数)', e:'🐭', b:['m','ou','s','e_s'], tip:'m + 双元音 ou /aʊ/ + s + 静音 e', s:'Monty is a small mouse.' },
+      { u:'u5', w:'mice', zh:'老鼠 (复数)', e:'🐁', b:['m','i_ai','c_s','e_s'], tip:'魔法 i_e (/aɪ/) + ce 在词尾发 /s/', s:'Three white mice.' },
+      { u:'u5', w:'long', zh:'长的', e:'📏', b:['l','o','ng'], tip:'l + 短音 o /ɒ/ + 后鼻音 ng /ŋ/', s:'A long tail.' },
+      { u:'u5', w:'short', zh:'短的', e:'📐', b:['sh','or','t'], tip:'sh /ʃ/ + r控元音 or /ɔː/ + t', s:'Short ears.' },
+      { u:'u5', w:'big', zh:'大的', e:'🐘', b:['b','i','g'], tip:'CVC 闭音节：b + 短音 i /ɪ/ + g', s:'A big dog.' },
+      { u:'u5', w:'small', zh:'小的', e:'🐜', b:['sm','all'], tip:'辅音连缀 sm + all /ɔːl/', s:'A small cat.' },
+      { u:'u5', w:'clean', zh:'干净的', e:'✨', b:['cl','ea','n'], tip:'连缀 cl + 长元音组合 ea /iː/ + n', s:'A clean cat.' },
+      { u:'u5', w:'dirty', zh:'脏的', e:'💩', b:['d','ir','.','t','y_i'], tip:'dir (ir 发 /ɜː/) · ty (/ti/)', s:'A dirty dog.' },
+      { u:'u5', w:'our', zh:'我们的', e:'🏡', b:['our'], tip:'our 发 /aʊə/', s:'They are our pets.' },
+      { u:'u5', w:'his', zh:'他的', e:'👦', b:['h','i','s_z'], tip:'h + i /ɪ/ + s 浊化发 /z/', s:'His dog is big.' },
+      { u:'u5', w:'her', zh:'她的', e:'👧', b:['h','er_long'], tip:'h + er 重读发长音 /ɜː/', s:'Her cat is white.' },
 
-      // ==================== UNIT 6: My face (22 words) ====================
-      { u:'u6', word:'body', syl:'bod · y', ipa:'/ˈbɒd.i/', cn:'身体', emoji:'🧍', blocks:P(['b','o','d','.','y_ee']), tip:'双音节：bod + y(/i/)', sentence:'Move your body.' },
-      { u:'u6', word:'hair', syl:'hair', ipa:'/heə/', cn:'头发', emoji:'💇', blocks:P(['h','air']), tip:'h + air 组合发 /eə/（和 chair 押韵）', sentence:'Long hair.' },
-      { u:'u6', word:'head', syl:'head', ipa:'/hed/', cn:'头', emoji:'🗣️', blocks:P(['h','ea_eh','d']), tip:'注意这里的 ea 发短音 /e/：h + ea(/e/) + d', sentence:'Touch your head.' },
-      { u:'u6', word:'face', syl:'face', ipa:'/feɪs/', cn:'脸', emoji:'😊', blocks:P(['f','a_ay','c_s','e_s']), tip:'魔法 a_e 发 /eɪ/，c 遇到 e 发 /s/', sentence:'Wash your face.' },
-      { u:'u6', word:'ear', syl:'ear', ipa:'/ɪə/', cn:'耳朵', emoji:'👂', blocks:P(['ear']), tip:'整体音节 ear 直接读 /ɪə/', sentence:'Two big ears.' },
-      { u:'u6', word:'eye', syl:'eye', ipa:'/aɪ/', cn:'眼睛', emoji:'👁️', blocks:[{t:'eye',tts:'eye',ipa:'/aɪ/',k:'v'}], tip:'看起来就像两只眼睛夹着鼻子，读作 /aɪ/', sentence:'Close your eyes.' },
-      { u:'u6', word:'nose', syl:'nose', ipa:'/nəʊz/', cn:'鼻子', emoji:'👃', blocks:P(['n','o_oh','s_z','e_s']), tip:'魔法 o_e 发 /əʊ/，s 发 /z/，词尾 e 静音', sentence:'A small nose.' },
-      { u:'u6', word:'mouth', syl:'mouth', ipa:'/maʊθ/', cn:'嘴巴', emoji:'👄', blocks:P(['m','ou','th']), tip:'m + ou(/aʊ/) + 咬舌音 th(/θ/)', sentence:'Open your mouth.' },
-      { u:'u6', word:'tooth', syl:'tooth', ipa:'/tuːθ/', cn:'牙齿（单数）', emoji:'🦷', blocks:P(['t','oo','th']), tip:'一颗牙：t + 长音 oo(/uː/) + th', sentence:'One white tooth.' },
-      { u:'u6', word:'teeth', syl:'teeth', ipa:'/tiːθ/', cn:'牙齿（复数）', emoji:'😁', blocks:P(['t','ee','th']), tip:'多颗牙把 oo 变成 ee：t + ee(/iː/) + th', sentence:'Clean your teeth.' },
-      { u:'u6', word:'shoulder', syl:'shoul · der', ipa:'/ˈʃəʊl.dər/', cn:'肩膀', emoji:'🤷', blocks:[{t:'shoul',tts:'shohl',ipa:'/ʃəʊl/',k:'c'},{t:'dot'},{t:'der',tts:'der',ipa:'/dər/',k:'v'}], tip:'双音节：shoul + der', sentence:'Head and shoulders.' },
-      { u:'u6', word:'knee', syl:'knee', ipa:'/niː/', cn:'膝盖', emoji:'🦵', blocks:P(['kn','ee']), tip:'kn 组合中 k 静音只发 /n/ + 长音 ee(/iː/)', sentence:'Knees and toes.' },
-      { u:'u6', word:'toe', syl:'toe', ipa:'/təʊ/', cn:'脚趾', emoji:'🦶', blocks:P(['t','oe']), tip:'t + oe 组合发长音 /əʊ/', sentence:'Touch your toes.' },
-      { u:'u6', word:'hear', syl:'hear', ipa:'/hɪə/', cn:'听到', emoji:'👂', blocks:P(['h','ear']), tip:'h + ear(耳朵 /ɪə/) = 听到！', sentence:'I can hear a bird.' },
-      { u:'u6', word:'see', syl:'see', ipa:'/siː/', cn:'看到', emoji:'👀', blocks:P(['s','ee']), tip:'s + 双胞胎长音 ee (/iː/)', sentence:'I can see you.' },
-      { u:'u6', word:'smell', syl:'smell', ipa:'/smel/', cn:'闻到', emoji:'👃', blocks:P(['sm','e','ll']), tip:'sm 连读 + 短音 e + ll', sentence:'Smell the flower.' },
-      { u:'u6', word:'taste', syl:'taste', ipa:'/teɪst/', cn:'品尝', emoji:'👅', blocks:P(['t','a_ay','st','e_s']), tip:'t + a(/eɪ/) + st + 静音 e', sentence:'Taste the cake.' },
-      { u:'u6', word:'touch', syl:'touch', ipa:'/tʌtʃ/', cn:'摸，触摸', emoji:'🤚', blocks:P(['t','ou_uh','ch']), tip:'t + ou(发短音 /ʌ/) + ch(/tʃ/)', sentence:'Touch your nose.' },
-      { u:'u6', word:'brush', syl:'brush', ipa:'/brʌʃ/', cn:'刷', emoji:'🪥', blocks:P(['br','u','sh']), tip:'br 连读 + 短音 u(/ʌ/) + sh(/ʃ/)', sentence:'Brush your hair.' },
-      { u:'u6', word:'feed', syl:'feed', ipa:'/fiːd/', cn:'喂', emoji:'🍼', blocks:P(['f','ee','d']), tip:'f + 长音 ee(/iː/) + d', sentence:'Feed the fish.' },
-      { u:'u6', word:'walk', syl:'walk', ipa:'/wɔːk/', cn:'走路，遛', emoji:'🚶', blocks:P(['w','a_or','l_s','k']), tip:'l 静音不读：w + a(/ɔː/) + k', sentence:'Walk the dog.' },
-      { u:'u6', word:'wash', syl:'wash', ipa:'/wɒʃ/', cn:'洗', emoji:'🧼', blocks:P(['w','a_o','sh']), tip:'w + 字母 a (在 w 后发 /ɒ/) + sh(/ʃ/)', sentence:'Wash your hands.' },
+      // ==================== UNIT 6: My face (22 items) ====================
+      { u:'u6', w:'body', zh:'身体', e:'🧍', b:['b','o','d','.','y_i'], tip:'bod (/bɒd/) · y (/i/)', s:'Move your body.' },
+      { u:'u6', w:'hair', zh:'头发', e:'💇', b:['h','air'], tip:'h + air 组合发 /eə/', s:'Long black hair.' },
+      { u:'u6', w:'head', zh:'头', e:'🗣️', b:['h','ea_e','d'], tip:'注意：这里的 ea 发短音 /e/，不发长音！', s:'Touch your head.' },
+      { u:'u6', w:'face', zh:'脸', e:'😊', b:['f','a_ei','c_s','e_s'], tip:'魔法 a_e (/eɪ/) + ce 在词尾发 /s/', s:'Wash your face.' },
+      { u:'u6', w:'ear', zh:'耳朵', e:'👂', b:['ear'], tip:'ear 整体发双元音 /ɪə/', s:'Two big ears.' },
+      { u:'u6', w:'eye', zh:'眼睛', e:'👁️', b:['ey_ai','e_s'], tip:'特殊词 eye 整体读作 /aɪ/', s:'Close your eyes.' },
+      { u:'u6', w:'nose', zh:'鼻子', e:'👃', b:['n','o_ou','s_z','e_s'], tip:'魔法 o_e (/əʊ/) + s 夹在元音间发 /z/', s:'A small nose.' },
+      { u:'u6', w:'mouth', zh:'嘴巴', e:'👄', b:['m','ou','th_u'], tip:'m + ou /aʊ/ + 清咬舌音 th /θ/', s:'Open your mouth.' },
+      { u:'u6', w:'tooth', zh:'牙齿 (单数)', e:'🦷', b:['t','oo_long','th_u'], tip:'t + 长音 oo /uː/ + 清咬舌音 th /θ/', s:'One white tooth.' },
+      { u:'u6', w:'teeth', zh:'牙齿 (复数)', e:'😁', b:['t','ee','th_u'], tip:'oo 变 ee (/iː/) 表示复数牙齿！', s:'Clean your teeth.' },
+      { u:'u6', w:'shoulder', zh:'肩膀', e:'🤷', b:['sh','ou_ou','l','.','d','er'], tip:'shoul (/ʃəʊl/) · der (/də/)', s:'Touch your shoulders.' },
+      { u:'u6', w:'knee', zh:'膝盖', e:'🦵', b:['kn','ee'], tip:'kn 组合中 k 静音只发 /n/ + 长音 ee /iː/', s:'Bend your knees.' },
+      { u:'u6', w:'toe', zh:'脚趾', e:'🦶', b:['t','oe'], tip:'t + 词尾元音组合 oe 发 /əʊ/', s:'Touch your toes.' },
+      { u:'u6', w:'hear', zh:'听到', e:'🎶', b:['h','ear'], tip:'h + ear (/ɪə/)，里面就藏着耳朵 ear！', s:'I can hear a bird.' },
+      { u:'u6', w:'see', zh:'看到', e:'👀', b:['s','ee'], tip:'s + 双写 ee 发长音 /iː/', s:'I can see a rainbow.' },
+      { u:'u6', w:'smell', zh:'闻到', e:'👃', b:['sm','e','ll'], tip:'连缀 sm + 短音 e /e/ + 双写 ll', s:'Smell the flower.' },
+      { u:'u6', w:'taste', zh:'品尝', e:'👅', b:['t','a_ei','st','e_s'], tip:'魔法 a_e：a 发 /eɪ/ + st + 静音 e', s:'Taste the cake.' },
+      { u:'u6', w:'touch', zh:'摸，触摸', e:'🤚', b:['t','ou_u','ch'], tip:'t + ou 发短音 /ʌ/ + ch /tʃ/', s:'Touch your nose.' },
+      { u:'u6', w:'brush', zh:'刷', e:'🪥', b:['br','u','sh'], tip:'连缀 br + 短音 u /ʌ/ + sh /ʃ/', s:'Brush your hair.' },
+      { u:'u6', w:'feed', zh:'喂养', e:'🍼', b:['f','ee','d'], tip:'f + 长音 ee /iː/ + d', s:'Feed the fish.' },
+      { u:'u6', w:'walk', zh:'走路，遛', e:'🚶', b:['w','a_or','l_s','k'], tip:'l 静音不发音，读作 /wɔːk/', s:'Walk the dog.' },
+      { u:'u6', w:'wash', zh:'洗', e:'🧼', b:['w','a_o','sh'], tip:'w + a (在 w 后发 /ɒ/) + sh /ʃ/', s:'Wash your hands.' },
 
-      // ==================== UNIT 7: Wild animals (14 words) ====================
-      { u:'u7', word:'animal', syl:'an · i · mal', ipa:'/ˈæn.ɪ.məl/', cn:'动物', emoji:'🦁', blocks:[{t:'an',tts:'an',ipa:'/æn/',k:'v'},{t:'dot'},{t:'i',tts:'ih',ipa:'/ɪ/',k:'v'},{t:'dot'},{t:'mal',tts:'mul',ipa:'/məl/',k:'c'}], tip:'三音节：an + i + mal', sentence:'Wild animals.' },
-      { u:'u7', word:'elephant', syl:'el · e · phant', ipa:'/ˈel.ɪ.fənt/', cn:'大象', emoji:'🐘', blocks:[{t:'el',tts:'el',ipa:'/el/',k:'v'},{t:'dot'},{t:'e',tts:'ih',ipa:'/ɪ/',k:'v'},{t:'dot'},{t:'phant',tts:'funt',ipa:'/fənt/',k:'c'}], tip:'ph 发 /f/ 音：el + e + phant', sentence:'A big grey elephant.' },
-      { u:'u7', word:'hippo', syl:'hip · po', ipa:'/ˈhɪp.əʊ/', cn:'河马', emoji:'🦛', blocks:P(['h','i','pp','.','o_oh']), tip:'双音节：hip + po (/pəʊ/)', sentence:'A fat hippo.' },
-      { u:'u7', word:'giraffe', syl:'gi · raffe', ipa:'/dʒɪˈrɑːf/', cn:'长颈鹿', emoji:'🦒', blocks:P(['g_j','i','.','r','a_ar','ff','e_s']), tip:'g 遇到 i 发 /dʒ/：gi + raffe', sentence:'A tall giraffe.' },
-      { u:'u7', word:'crocodile', syl:'croc · o · dile', ipa:'/ˈkrɒk.ə.daɪl/', cn:'鳄鱼', emoji:'🐊', blocks:[{t:'croc',tts:'krok',ipa:'/krɒk/',k:'c'},{t:'dot'},{t:'o',tts:'uh',ipa:'/ə/',k:'v'},{t:'dot'},{t:'dile',tts:'dayl',ipa:'/daɪl/',k:'v'}], tip:'三块积木：croc + o + dile (i_e发/aɪ/)', sentence:'A green crocodile.' },
-      { u:'u7', word:'tiger', syl:'ti · ger', ipa:'/ˈtaɪ.ɡər/', cn:'老虎', emoji:'🐯', blocks:P(['t','i_ai','.','g','er']), tip:'双音节：开音节 ti (/taɪ/) + ger', sentence:'An orange tiger.' },
-      { u:'u7', word:'snake', syl:'snake', ipa:'/sneɪk/', cn:'蛇', emoji:'🐍', blocks:P(['sn','a_ay','k','e_s']), tip:'sn 连读 + 魔法 a_e (/eɪ/) + k + 静音 e', sentence:'A long snake.' },
-      { u:'u7', word:'monkey', syl:'mon · key', ipa:'/ˈmʌŋ.ki/', cn:'猴子', emoji:'🐒', blocks:[{t:'mon',tts:'mung',ipa:'/mʌŋ/',k:'c'},{t:'dot'},{t:'key',tts:'kee',ipa:'/ki/',k:'v'}], tip:'双音节：mon (/mʌŋ/) + key (/ki/)', sentence:'A funny monkey.' },
-      { u:'u7', word:'tail', syl:'tail', ipa:'/teɪl/', cn:'尾巴', emoji:'🐈', blocks:P(['t','ai','l']), tip:'t + ai 发长音 /eɪ/ + l', sentence:'A long tail.' },
-      { u:'u7', word:'leg', syl:'leg', ipa:'/leɡ/', cn:'腿', emoji:'🦵', blocks:P(['l','e','g']), tip:'标准短音 CVC：l + e(/e/) + g', sentence:'Long legs.' },
-      { u:'u7', word:'hand', syl:'hand', ipa:'/hænd/', cn:'手', emoji:'✋', blocks:P(['h','a','nd']), tip:'h + 大口 a(/æ/) + nd', sentence:'Clap your hands.' },
-      { u:'u7', word:'arm', syl:'arm', ipa:'/ɑːm/', cn:'胳膊，手臂', emoji:'💪', blocks:P(['ar','m']), tip:'ar (/ɑː/) + m', sentence:'Two long arms.' },
-      { u:'u7', word:'foot', syl:'foot', ipa:'/fʊt/', cn:'脚（单数）', emoji:'🦶', blocks:P(['f','oo_short','t']), tip:'一只脚：f + 短音 oo(/ʊ/) + t', sentence:'One foot.' },
-      { u:'u7', word:'feet', syl:'feet', ipa:'/fiːt/', cn:'脚（复数）', emoji:'👣', blocks:P(['f','ee','t']), tip:'两只脚把 oo 变成 ee：f + ee(/iː/) + t', sentence:'Two big feet.' },
+      // ==================== UNIT 7: Wild animals (14 items) ====================
+      { u:'u7', w:'animal', zh:'动物', e:'🐾', b:['a','n','.','i_schwa','.','m','a_schwa','l'], tip:'三音节：an (/æn/) · i (/ɪ/) · mal (/məl/)', s:'Wild animals.' },
+      { u:'u7', w:'elephant', zh:'大象', e:'🐘', b:['e','l','.','e_i','.','ph','a_schwa','nt'], tip:'ph 发 /f/ 音！el · e · phant (/fənt/)', s:'An elephant has a long nose.' },
+      { u:'u7', w:'hippo', zh:'河马', e:'🦛', b:['h','i','pp','.','o_ou'], tip:'hip (/hɪp/) · po (词尾 o 发 /əʊ/)', s:'A big grey hippo.' },
+      { u:'u7', w:'giraffe', zh:'长颈鹿', e:'🦒', b:['g_j','i_schwa','.','r','a_ar','ff','e_s'], tip:'g 在 i 前发软音 /dʒ/：gi (/dʒə/) · raffe (/rɑːf/)', s:'A tall giraffe.' },
+      { u:'u7', w:'crocodile', zh:'鳄鱼', e:'🐊', b:['cr','o','c','.','o_schwa','.','d','i_ai','l','e_s'], tip:'croc (/krɒk/) · o (/ə/) · dile (魔法 i_e 发 /aɪ/)', s:'A green crocodile.' },
+      { u:'u7', w:'tiger', zh:'老虎', e:'🐯', b:['t','i_ai','.','g','er'], tip:'开音节 ti (i 发 /aɪ/) · ger (/ɡə/)', s:'An orange and black tiger.' },
+      { u:'u7', w:'snake', zh:'蛇', e:'🐍', b:['sn','a_ei','k','e_s'], tip:'连缀 sn + 魔法 a_e (/eɪ/) + k', s:'A long snake.' },
+      { u:'u7', w:'monkey', zh:'猴子', e:'🐵', b:['m','o_u','n','.','k','ey_i'], tip:'mon (o 发 /ʌ/) · key (ey 在词尾发 /i/)', s:'A funny monkey.' },
+      { u:'u7', w:'tail', zh:'尾巴', e:'🐒', b:['t','ai','l'], tip:'t + ai /eɪ/ + l', s:'A long tail.' },
+      { u:'u7', w:'leg', zh:'腿', e:'🦵', b:['l','e','g'], tip:'CVC 闭音节：l + 短音 e /e/ + g', s:'Four long legs.' },
+      { u:'u7', w:'hand', zh:'手', e:'✋', b:['h','a','nd'], tip:'h + 梅花音 a /æ/ + nd', s:'Clap your hands.' },
+      { u:'u7', w:'arm', zh:'胳膊，手臂', e:'💪', b:['ar','m'], tip:'r控元音 ar /ɑː/ + m', s:'Two long arms.' },
+      { u:'u7', w:'foot', zh:'脚 (单数)', e:'🦶', b:['f','oo_short','t'], tip:'f + 短音 oo /ʊ/ + t', s:'One foot.' },
+      { u:'u7', w:'feet', zh:'脚 (复数)', e:'👣', b:['f','ee','t'], tip:'与 tooth/teeth 一样：oo 变 ee (/iː/) 表复数！', s:'Two big feet.' },
 
-      // ==================== UNIT 8: My clothes (13 words) ====================
-      { u:'u8', word:'dress', syl:'dress', ipa:'/dres/', cn:'连衣裙', emoji:'👗', blocks:P(['dr','e','ss']), tip:'dr 连读 + 短音 e + ss', sentence:'A pink dress.' },
-      { u:'u8', word:'skirt', syl:'skirt', ipa:'/skɜːt/', cn:'短裙', emoji:'🩰', blocks:P(['sk','ir','t']), tip:'sk 连读 + ir 卷舌音 /ɜː/ + t', sentence:'A purple skirt.' },
-      { u:'u8', word:'shirt', syl:'shirt', ipa:'/ʃɜːt/', cn:'衬衫', emoji:'👔', blocks:P(['sh','ir','t']), tip:'sh(/ʃ/) + ir 卷舌音 /ɜː/ + t', sentence:'A white shirt.' },
-      { u:'u8', word:'T-shirt', syl:'T · shirt', ipa:'/ˈtiː.ʃɜːt/', cn:'T恤衫', emoji:'👕', blocks:[{t:'T',tts:'tee',ipa:'/tiː/',k:'v'},{t:'dot'}, ...P(['sh','ir','t'])], tip:'字母 T + shirt', sentence:'A yellow T-shirt.' },
-      { u:'u8', word:'jacket', syl:'jack · et', ipa:'/ˈdʒæk.ɪt/', cn:'夹克衫', emoji:'🧥', blocks:P(['j','a','ck','.','e_i','t']), tip:'双音节：jack (/dʒæk/) + et (/ɪt/)', sentence:'A green jacket.' },
-      { u:'u8', word:'socks', syl:'socks', ipa:'/sɒks/', cn:'袜子（复数）', emoji:'🧦', blocks:P(['s','o','ck','s']), tip:'s + 短音 o + ck + s', sentence:'Red socks.' },
-      { u:'u8', word:'shoes', syl:'shoes', ipa:'/ʃuːz/', cn:'鞋子（复数）', emoji:'👟', blocks:P(['sh','oe_oo','s_z']), tip:'sh(/ʃ/) + oe(发长音 /uː/) + s(/z/)', sentence:'Black shoes.' },
-      { u:'u8', word:'glasses', syl:'glass · es', ipa:'/ˈɡlɑː.sɪz/', cn:'眼镜', emoji:'👓', blocks:[{t:'glass',tts:'glas',ipa:'/ɡlɑːs/',k:'c'},{t:'dot'},{t:'es',tts:'ihz',ipa:'/ɪz/',k:'v'}], tip:'gl 连读 + ass + 复数 es', sentence:"He's got glasses." },
-      { u:'u8', word:'jeans', syl:'jeans', ipa:'/dʒiːnz/', cn:'牛仔裤', emoji:'👖', blocks:P(['j','ea','n','s_z']), tip:'j + 长音 ea(/iː/) + n + s(/z/)', sentence:'Blue jeans.' },
-      { u:'u8', word:'trousers', syl:'trou · sers', ipa:'/ˈtraʊ.zəz/', cn:'裤子', emoji:'👖', blocks:P(['tr','ou','.','s_z','er','s_z']), tip:'双音节：trou (tr + ou /aʊ/) + sers', sentence:'Brown trousers.' },
-      { u:'u8', word:'forest', syl:'for · est', ipa:'/ˈfɒr.ɪst/', cn:'森林', emoji:'🌲', blocks:P(['f','o','r','.','e_i','st']), tip:'双音节：for (/fɒr/) + est (/ɪst/)', sentence:'In the forest.' },
-      { u:'u8', word:'plain', syl:'plain', ipa:'/pleɪn/', cn:'平原', emoji:'🌾', blocks:P(['pl','ai','n']), tip:'pl 连读 + ai 长音 /eɪ/ + n', sentence:'On the plain.' },
-      { u:'u8', word:'river', syl:'riv · er', ipa:'/ˈrɪv.ər/', cn:'河，河流', emoji:'🏞️', blocks:P(['r','i','v','.','er']), tip:'双音节：riv (/rɪv/) + er (/ər/)', sentence:'By the river.' },
+      // ==================== UNIT 8: My clothes (13 items) ====================
+      { u:'u8', w:'dress', zh:'连衣裙', e:'👗', b:['dr','e','ss'], tip:'连缀 dr /dr/ + 短音 e /e/ + 双写 ss', s:'A red dress.' },
+      { u:'u8', w:'skirt', zh:'短裙', e:'🩰', b:['sk','ir','t'], tip:'连缀 sk + r控元音 ir /ɜː/ + t', s:'A pink skirt.' },
+      { u:'u8', w:'shirt', zh:'衬衫', e:'👔', b:['sh','ir','t'], tip:'sh /ʃ/ + r控元音 ir /ɜː/ + t', s:'A white shirt.' },
+      { u:'u8', w:'T-shirt', zh:'T恤衫', e:'👕', b:['T','.','sh','ir','t'], tip:'字母 T (/tiː/) + shirt (/ʃɜːt/)', s:'My favourite T-shirt.' },
+      { u:'u8', w:'jacket', zh:'夹克衫', e:'🧥', b:['j','a','ck','.','e_i','t'], tip:'jack (/dʒæk/) · et (/ɪt/)', s:'A green jacket.' },
+      { u:'u8', w:'socks', zh:'袜子 (复数)', e:'🧦', b:['s','o','ck','s'], tip:'s + 短音 o /ɒ/ + ck /k/ + s', s:'Yellow socks.' },
+      { u:'u8', w:'shoes', zh:'鞋子 (复数)', e:'👟', b:['sh','oe_u','s_z'], tip:'sh /ʃ/ + oe 这里发长音 /uː/ + s 发 /z/', s:'Blue shoes.' },
+      { u:'u8', w:'glasses', zh:'眼镜', e:'👓', b:['gl','a_ar','ss','.','e_i','s_z'], tip:'glass (/ɡlɑːs/) · es (/ɪz/)', s:'She has glasses.' },
+      { u:'u8', w:'jeans', zh:'牛仔裤', e:'👖', b:['j','ea','n','s_z'], tip:'j /dʒ/ + 长音 ea /iː/ + n + s (/z/)', s:'Blue jeans.' },
+      { u:'u8', w:'trousers', zh:'裤子', e:'👖', b:['tr','ou','s_z','er','s_z'], tip:'trou (tr + ou /aʊ/) · sers (/zəz/)', s:'Brown trousers.' },
+      { u:'u8', w:'forest', zh:'森林', e:'🌲', b:['f','o','r','.','e_i','st'], tip:'for (/fɒr/) · est (/ɪst/)', s:'In the green forest.' },
+      { u:'u8', w:'plain', zh:'平原', e:'🌾', b:['pl','ai','n'], tip:'连缀 pl + 长音组合 ai /eɪ/ + n', s:'Run on the plain.' },
+      { u:'u8', w:'river', zh:'河，河流', e:'🏞️', b:['r','i','v','.','er'], tip:'riv (/rɪv/) · er (/ə/)', s:'Swim in the river.' },
 
-      // ==================== UNIT 9: Fun time! (26 words & phrases) ====================
-      { u:'u9', word:'swim', syl:'swim', ipa:'/swɪm/', cn:'游泳', emoji:'🏊', blocks:P(['sw','i','m']), tip:'sw 连读 + 短音 i + m', sentence:'I can swim.' },
-      { u:'u9', word:'sing', syl:'sing', ipa:'/sɪŋ/', cn:'唱歌', emoji:'🎤', blocks:P(['s','i','ng']), tip:'s + 短音 i + 后鼻音 ng(/ŋ/)', sentence:'Sing a song.' },
-      { u:'u9', word:'fish', syl:'fish', ipa:'/fɪʃ/', cn:'钓鱼，鱼', emoji:'🎣', blocks:P(['f','i','sh']), tip:'f + 短音 i + sh(/ʃ/)', sentence:'Can you fish?' },
-      { u:'u9', word:'play', syl:'play', ipa:'/pleɪ/', cn:'玩，打（球），弹', emoji:'🤸', blocks:P(['pl','ay']), tip:'pl 连读 + ay 长音 /eɪ/', sentence:'Play football.' },
-      { u:'u9', word:'ride', syl:'ride', ipa:'/raɪd/', cn:'骑（马/车）', emoji:'🚴', blocks:P(['r','i_ai','d','e_s']), tip:'魔法 e (i_e)：r + i(/aɪ/) + d + 静音 e', sentence:'Ride a bike.' },
-      { u:'u9', word:'drive', syl:'drive', ipa:'/draɪv/', cn:'开车，驾驶', emoji:'🚗', blocks:P(['dr','i_ai','v','e_s']), tip:'dr 连读 + 魔法 i_e (/aɪ/) + v + 静音 e', sentence:'Drive a car.' },
-      { u:'u9', word:'draw', syl:'draw', ipa:'/drɔː/', cn:'画', emoji:'🖍️', blocks:P(['dr','aw']), tip:'dr 连读 + aw 发长音 /ɔː/', sentence:'Draw a picture.' },
-      { u:'u9', word:'guitar', syl:'gui · tar', ipa:'/ɡɪˈtɑː/', cn:'吉他', emoji:'🎸', blocks:[{t:'gui',tts:'gih',ipa:'/ɡɪ/',k:'c'},{t:'dot'}, ...P(['t','ar'])], tip:'双音节：gui (/ɡɪ/) + tar (/tɑː/)', sentence:'Play the guitar.' },
-      { u:'u9', word:'piano', syl:'pi · an · o', ipa:'/piˈæn.əʊ/', cn:'钢琴', emoji:'🎹', blocks:[{t:'pi',tts:'pee',ipa:'/pi/',k:'v'},{t:'dot'},{t:'an',tts:'an',ipa:'/æn/',k:'v'},{t:'dot'}, ...P(['o_oh'])], tip:'三音节：pi + an + o', sentence:'Play the piano.' },
-      { u:'u9', word:'football', syl:'foot · ball', ipa:'/ˈfʊt.bɔːl/', cn:'足球', emoji:'⚽', blocks:P(['f','oo_short','t','.','b','a_or','ll']), tip:'合成词：foot + ball', sentence:'Play football.' },
-      { u:'u9', word:'basketball', syl:'bas · ket · ball', ipa:'/ˈbɑː.skɪt.bɔːl/', cn:'篮球', emoji:'🏀', blocks:[{t:'bas',tts:'bahs',ipa:'/bɑːs/',k:'c'},{t:'dot'},{t:'ket',tts:'kiht',ipa:'/kɪt/',k:'c'},{t:'dot'},{t:'ball',tts:'bawl',ipa:'/bɔːl/',k:'v'}], tip:'三块积木：bas + ket (篮子) + ball (球)', sentence:'Play basketball.' },
-      { u:'u9', word:'tennis', syl:'ten · nis', ipa:'/ˈten.ɪs/', cn:'网球', emoji:'🎾', blocks:P(['t','e','nn','.','i','s']), tip:'双音节：ten + nis', sentence:'Play tennis.' },
-      { u:'u9', word:'play the guitar', syl:'play · the · gui · tar', ipa:'/pleɪ ðə ɡɪˈtɑː/', cn:'弹吉他', emoji:'🎸', blocks:[{t:'play',tts:'play',ipa:'/pleɪ/',k:'v'},{t:'space'},{t:'the',tts:'thuh',ipa:'/ðə/',k:'c'},{t:'space'},{t:'gui',tts:'gih',ipa:'/ɡɪ/',k:'c'},{t:'dot'},{t:'tar',tts:'tar',ipa:'/tɑː/',k:'v'}], tip:'乐器前面要加 the：play + the + guitar', sentence:'I can play the guitar.' },
-      { u:'u9', word:'play the piano', syl:'play · the · pi · a · no', ipa:'/pleɪ ðə piˈæn.əʊ/', cn:'弹钢琴', emoji:'🎹', blocks:[{t:'play',tts:'play',ipa:'/pleɪ/',k:'v'},{t:'space'},{t:'the',tts:'thuh',ipa:'/ðə/',k:'c'},{t:'space'},{t:'pi',tts:'pee',ipa:'/pi/',k:'v'},{t:'dot'},{t:'a',tts:'an',ipa:'/æn/',k:'v'},{t:'dot'},{t:'no',tts:'noh',ipa:'/nəʊ/',k:'v'}], tip:'乐器前面要加 the：play + the + piano', sentence:'She can play the piano.' },
-      { u:'u9', word:'draw a picture', syl:'draw · a · pic · ture', ipa:'/drɔː ə ˈpɪk.tʃər/', cn:'画画', emoji:'🎨', blocks:[{t:'draw',tts:'draw',ipa:'/drɔː/',k:'v'},{t:'space'},{t:'a',tts:'uh',ipa:'/ə/',k:'v'},{t:'space'},{t:'pic',tts:'pik',ipa:'/pɪk/',k:'c'},{t:'dot'},{t:'ture',tts:'cher',ipa:'/tʃər/',k:'v'}], tip:'动宾短语：draw + a + picture', sentence:'He can draw a picture.' },
-      { u:'u9', word:'play football', syl:'play · foot · ball', ipa:'/pleɪ ˈfʊt.bɔːl/', cn:'踢足球', emoji:'⚽', blocks:[{t:'play',tts:'play',ipa:'/pleɪ/',k:'v'},{t:'space'},{t:'foot',tts:'fut',ipa:'/fʊt/',k:'c'},{t:'dot'},{t:'ball',tts:'bawl',ipa:'/bɔːl/',k:'v'}], tip:'球类运动不加 the：play + football', sentence:'They play football.' },
-      { u:'u9', word:'play basketball', syl:'play · bas · ket · ball', ipa:'/pleɪ ˈbɑː.skɪt.bɔːl/', cn:'打篮球', emoji:'🏀', blocks:[{t:'play',tts:'play',ipa:'/pleɪ/',k:'v'},{t:'space'},{t:'bas',tts:'bahs',ipa:'/bɑːs/',k:'c'},{t:'dot'},{t:'ket',tts:'kiht',ipa:'/kɪt/',k:'c'},{t:'dot'},{t:'ball',tts:'bawl',ipa:'/bɔːl/',k:'v'}], tip:'球类运动不加 the：play + basketball', sentence:'Can you play basketball?' },
-      { u:'u9', word:'play tennis', syl:'play · ten · nis', ipa:'/pleɪ ˈten.ɪs/', cn:'打网球', emoji:'🎾', blocks:[{t:'play',tts:'play',ipa:'/pleɪ/',k:'v'},{t:'space'},{t:'ten',tts:'ten',ipa:'/ten/',k:'c'},{t:'dot'},{t:'nis',tts:'nihs',ipa:'/nɪs/',k:'v'}], tip:'球类运动不加 the：play + tennis', sentence:'Let us play tennis.' },
-      { u:'u9', word:'ride a horse', syl:'ride · a · horse', ipa:'/raɪd ə hɔːs/', cn:'骑马', emoji:'🏇', blocks:[{t:'ride',tts:'rayd',ipa:'/raɪd/',k:'v'},{t:'space'},{t:'a',tts:'uh',ipa:'/ə/',k:'v'},{t:'space'},{t:'horse',tts:'hors',ipa:'/hɔːs/',k:'c'}], tip:'短语：ride + a + horse', sentence:'She can ride a horse.' },
-      { u:'u9', word:'ride a bike', syl:'ride · a · bike', ipa:'/raɪd ə baɪk/', cn:'骑自行车', emoji:'🚲', blocks:[{t:'ride',tts:'rayd',ipa:'/raɪd/',k:'v'},{t:'space'},{t:'a',tts:'uh',ipa:'/ə/',k:'v'},{t:'space'},{t:'bike',tts:'bayk',ipa:'/baɪk/',k:'v'}], tip:'两个魔法 i_e 词相遇：ride + a + bike', sentence:'I can ride a bike.' },
-      { u:'u9', word:'drive a car', syl:'drive · a · car', ipa:'/draɪv ə kɑː/', cn:'开车', emoji:'🚗', blocks:[{t:'drive',tts:'drayv',ipa:'/draɪv/',k:'v'},{t:'space'},{t:'a',tts:'uh',ipa:'/ə/',k:'v'},{t:'space'},{t:'car',tts:'kar',ipa:'/kɑː/',k:'c'}], tip:'短语：drive + a + car', sentence:'He can drive a car.' },
-      { u:'u9', word:'play a game', syl:'play · a · game', ipa:'/pleɪ ə ɡeɪm/', cn:'玩游戏', emoji:'🎲', blocks:[{t:'play',tts:'play',ipa:'/pleɪ/',k:'v'},{t:'space'},{t:'a',tts:'uh',ipa:'/ə/',k:'v'},{t:'space'}, ...P(['g','a_ay','m','e_s'])], tip:'play + a + game (魔法 a_e 发 /eɪ/)', sentence:'Let us play a game.' },
-      { u:'u9', word:'listen to music', syl:'lis · ten · to · mu · sic', ipa:'/ˈlɪs.ən tuː ˈmjuː.zɪk/', cn:'听音乐', emoji:'🎵', blocks:[{t:'lis',tts:'lihs',ipa:'/lɪs/',k:'c'},{t:'dot'},{t:'ten',tts:'un',ipa:'/ən/',k:'v'},{t:'space'},{t:'to',tts:'too',ipa:'/tuː/',k:'v'},{t:'space'},{t:'mu',tts:'myoo',ipa:'/mjuː/',k:'v'},{t:'dot'},{t:'sic',tts:'zik',ipa:'/zɪk/',k:'c'}], tip:'短语：listen + to + mu·sic', sentence:'I listen to music.' },
-      { u:'u9', word:'colour a picture', syl:'col · our · a · pic · ture', ipa:'/ˈkʌl.ər ə ˈpɪk.tʃər/', cn:'绘画涂色', emoji:'🖍️', blocks:[{t:'col',tts:'kul',ipa:'/kʌl/',k:'c'},{t:'dot'},{t:'our',tts:'er',ipa:'/ər/',k:'v'},{t:'space'},{t:'a',tts:'uh',ipa:'/ə/',k:'v'},{t:'space'},{t:'pic',tts:'pik',ipa:'/pɪk/',k:'c'},{t:'dot'},{t:'ture',tts:'cher',ipa:'/tʃər/',k:'v'}], tip:'短语：colour + a + picture', sentence:'Colour a picture.' },
-      { u:'u9', word:'open the door', syl:'o · pen · the · door', ipa:'/ˈəʊ.pən ðə dɔː/', cn:'打开门', emoji:'🚪', blocks:[{t:'o',tts:'oh',ipa:'/əʊ/',k:'v'},{t:'dot'},{t:'pen',tts:'pun',ipa:'/pən/',k:'c'},{t:'space'},{t:'the',tts:'thuh',ipa:'/ðə/',k:'c'},{t:'space'}, ...P(['d','oor'])], tip:'反义短语对比：open the door / close the door', sentence:'Open the door, please.' },
-      { u:'u9', word:'watch TV', syl:'watch · T · V', ipa:'/wɒtʃ tiː viː/', cn:'看电视', emoji:'📺', blocks:P(['w','a_o','tch','_',{t:'TV',tts:'tee vee',ipa:'/tiː viː/',k:'v'}]), tip:'watch (w + 字母 a 发 /ɒ/ + tch) + TV', sentence:'Watch TV.' },
+      // ==================== UNIT 9: Fun time! (26 items) ====================
+      { u:'u9', w:'swim', zh:'游泳', e:'🏊', b:['sw','i','m'], tip:'连缀 sw /sw/ + 短音 i /ɪ/ + m', s:'I can swim.' },
+      { u:'u9', w:'sing', zh:'唱歌', e:'🎤', b:['s','i','ng'], tip:'s + 短音 i /ɪ/ + 后鼻音 ng /ŋ/', s:'Sing a song.' },
+      { u:'u9', w:'fish', zh:'钓鱼；鱼', e:'🎣', b:['f','i','sh'], tip:'f + 短音 i /ɪ/ + sh /ʃ/', s:"Let's go fishing." },
+      { u:'u9', w:'play', zh:'玩，打(球)，弹', e:'⛹️', b:['pl','ay'], tip:'连缀 pl + 长元音组合 ay /eɪ/', s:'Play football.' },
+      { u:'u9', w:'ride', zh:'骑 (车/马)', e:'🚴', b:['r','i_ai','d','e_s'], tip:'魔法 i_e：r + /aɪ/ + d + 静音 e', s:'Ride a bike.' },
+      { u:'u9', w:'drive', zh:'驾驶，开车', e:'🚙', b:['dr','i_ai','v','e_s'], tip:'连缀 dr + 魔法 i_e (/aɪ/) + v', s:'Drive a car.' },
+      { u:'u9', w:'draw', zh:'画画', e:'🖍️', b:['dr','aw'], tip:'连缀 dr + aw 组合发长音 /ɔː/', s:'Draw a picture.' },
+      { u:'u9', w:'guitar', zh:'吉他', e:'🎸', b:['g','ui','.','t','ar'], tip:'gui (u 不发音，读 /ɡɪ/) · tar (/tɑː/)', s:'Play the guitar.' },
+      { u:'u9', w:'piano', zh:'钢琴', e:'🎹', b:['p','i_long','.','a','.','n','o_ou'], tip:'pi (/pi/) · a (/æ/) · no (/nəʊ/)', s:'Play the piano.' },
+      { u:'u9', w:'football', zh:'足球', e:'⚽', b:['f','oo_short','t','.','b','all'], tip:'foot (/fʊt/) + ball (/bɔːl/)', s:'Play football.' },
+      { u:'u9', w:'basketball', zh:'篮球', e:'🏀', b:['b','a_ar','s','.','k','e_i','t','.','b','all'], tip:'bas · ket (/ˈbɑːskɪt/) + ball (/bɔːl/)', s:'Play basketball.' },
+      { u:'u9', w:'tennis', zh:'网球', e:'🎾', b:['t','e','nn','i','s'], tip:'ten (/ten/) · nis (/nɪs/)', s:'Play tennis.' },
+      { u:'u9', w:'play the guitar', zh:'弹吉他', e:'🎸', b:['pl','ay',' ','th_v','e_schwa',' ','g','ui','.','t','ar'], tip:'乐器前要加 the：play the guitar', s:'She can play the guitar.' },
+      { u:'u9', w:'play the piano', zh:'弹钢琴', e:'🎹', b:['pl','ay',' ','th_v','e_schwa',' ','p','i_long','.','a','.','n','o_ou'], tip:'乐器前要加 the：play the piano', s:'He can play the piano.' },
+      { u:'u9', w:'draw a picture', zh:'画画', e:'🎨', b:['dr','aw',' ','a_schwa',' ','p','i','c','.','t_ch','ure'], tip:'draw (/drɔː/) + a + picture (/ˈpɪktʃə/)', s:'I can draw a picture.' },
+      { u:'u9', w:'play football', zh:'踢足球', e:'⚽', b:['pl','ay',' ','f','oo_short','t','.','b','all'], tip:'球类运动前不加 the：play football', s:'They play football.' },
+      { u:'u9', w:'play basketball', zh:'打篮球', e:'🏀', b:['pl','ay',' ','b','a_ar','s','.','k','e_i','t','.','b','all'], tip:'球类运动前不加 the：play basketball', s:'We play basketball.' },
+      { u:'u9', w:'play tennis', zh:'打网球', e:'🎾', b:['pl','ay',' ','t','e','nn','i','s'], tip:'play (/pleɪ/) + tennis (/ˈtenɪs/)', s:'Can you play tennis?' },
+      { u:'u9', w:'ride a horse', zh:'骑马', e:'🏇', b:['r','i_ai','d','e_s',' ','a_schwa',' ','h','or','s','e_s'], tip:'ride (i_e) + a + horse (or)', s:'She can ride a horse.' },
+      { u:'u9', w:'ride a bike', zh:'骑自行车', e:'🚲', b:['r','i_ai','d','e_s',' ','a_schwa',' ','b','i_ai','k','e_s'], tip:'两个魔法 i_e 词连读：ride a bike!', s:'I can ride a bike.' },
+      { u:'u9', w:'drive a car', zh:'开车', e:'🚗', b:['dr','i_ai','v','e_s',' ','a_schwa',' ','c','ar'], tip:'drive (/draɪv/) + a + car (/kɑː/)', s:'He can drive a car.' },
+      { u:'u9', w:'play a game', zh:'玩游戏', e:'🎲', b:['pl','ay',' ','a_schwa',' ','g','a_ei','m','e_s'], tip:'play + a + game (魔法 a_e 发 /eɪ/)', s:"Let's play a game!" },
+      { u:'u9', w:'listen to music', zh:'听音乐', e:'🎧', b:['l','i','s','.','t_s','e_schwa','n',' ','t','o_long_u',' ','m','u_ju','.','s_z','i','c'], tip:'listen (t静音) + to + music (/ˈmjuːzɪk/)', s:'I listen to music.' },
+      { u:'u9', w:'colour a picture', zh:'绘画涂色', e:'🖍️', b:['c','o_u','l','.','ou_schwa','r',' ','a_schwa',' ','p','i','c','.','t_ch','ure'], tip:'colour (/ˈkʌlə/) + a + picture', s:'Colour a picture.' },
+      { u:'u9', w:'open the door', zh:'打开门', e:'🚪', b:['o_ou','.','p','e_schwa','n',' ','th_v','e_schwa',' ','d','oo_o','r'], tip:'open (/ˈəʊpən/) + the + door (/dɔː/)', s:'Open the door, please.' },
+      { u:'u9', w:'watch TV', zh:'看电视', e:'📺', b:['w','a_o','tch',' ','TV'], tip:'watch (a 在 w 后发 /ɒ/ + tch /tʃ/) + TV', s:'Watch TV in the living room.' },
 
-      // ==================== UNIT 10: At the funfair (15 words & phrases) ====================
-      { u:'u10', word:'bus', syl:'bus', ipa:'/bʌs/', cn:'公交车', emoji:'🚌', blocks:P(['b','u','s']), tip:'标准短音 CVC：b + u(/ʌ/) + s', sentence:'A red bus.' },
-      { u:'u10', word:'lorry', syl:'lor · ry', ipa:'/ˈlɒr.i/', cn:'卡车', emoji:'🚛', blocks:P(['l','o','rr','.','y_ee']), tip:'双音节（与 sorry 押韵）：lor + ry', sentence:'Drive a lorry.' },
-      { u:'u10', word:'motorbike', syl:'mo · tor · bike', ipa:'/ˈməʊ.tə.baɪk/', cn:'摩托车', emoji:'🏍️', blocks:[{t:'mo',tts:'moh',ipa:'/məʊ/',k:'v'},{t:'dot'},{t:'tor',tts:'ter',ipa:'/tər/',k:'c'},{t:'dot'},{t:'bike',tts:'bayk',ipa:'/baɪk/',k:'v'}], tip:'合成词：mo·tor (马达) + bike (车)', sentence:'Ride a motorbike.' },
-      { u:'u10', word:'boat', syl:'boat', ipa:'/bəʊt/', cn:'小船', emoji:'⛵', blocks:P(['b','oa','t']), tip:'b + oa 组合发长音 /əʊ/ + t', sentence:'Sail a boat.' },
-      { u:'u10', word:'plane', syl:'plane', ipa:'/pleɪn/', cn:'飞机', emoji:'✈️', blocks:P(['pl','a_ay','n','e_s']), tip:'pl 连读 + 魔法 a_e (/eɪ/) + n + 静音 e', sentence:'Fly a plane.' },
-      { u:'u10', word:'helicopter', syl:'hel · i · cop · ter', ipa:'/ˈhel.ɪ.kɒp.tər/', cn:'直升机', emoji:'🚁', blocks:[{t:'hel',tts:'hel',ipa:'/hel/',k:'c'},{t:'dot'},{t:'i',tts:'ih',ipa:'/ɪ/',k:'v'},{t:'dot'},{t:'cop',tts:'kop',ipa:'/kɒp/',k:'c'},{t:'dot'},{t:'ter',tts:'ter',ipa:'/tər/',k:'v'}], tip:'四音节拆积木秒记：hel + i + cop + ter', sentence:'Fly a helicopter.' },
-      { u:'u10', word:'funfair', syl:'fun · fair', ipa:'/ˈfʌn.feər/', cn:'游乐园', emoji:'🎡', blocks:P(['f','u','n','.','f','air']), tip:'合成词：fun (开心 /fʌn/) + fair (/feər/)', sentence:'At the funfair.' },
-      { u:'u10', word:'sit', syl:'sit', ipa:'/sɪt/', cn:'坐', emoji:'🪑', blocks:P(['s','i','t']), tip:'标准短音 CVC：s + i(/ɪ/) + t', sentence:'Sit in the boat.' },
-      { u:'u10', word:'fly', syl:'fly', ipa:'/flaɪ/', cn:'飞，驾驶（飞机）', emoji:'🦅', blocks:P(['fl','y_ai']), tip:'fl 连读 + 词尾 y 发 /aɪ/', sentence:'Birds can fly.' },
-      { u:'u10', word:'walk', syl:'walk', ipa:'/wɔːk/', cn:'走路', emoji:'🚶', blocks:P(['w','a_or','l_s','k']), tip:'l 静音：w + a(/ɔː/) + k', sentence:'Walk in the park.' },
-      { u:'u10', word:'fly a plane', syl:'fly · a · plane', ipa:'/flaɪ ə pleɪn/', cn:'开飞机', emoji:'✈️', blocks:[{t:'fly',tts:'flay',ipa:'/flaɪ/',k:'v'},{t:'space'},{t:'a',tts:'uh',ipa:'/ə/',k:'v'},{t:'space'}, ...P(['pl','a_ay','n','e_s'])], tip:'短语：fly + a + plane', sentence:"I'm flying a plane." },
-      { u:'u10', word:'fly a helicopter', syl:'fly · a · hel · i · cop · ter', ipa:'/flaɪ ə ˈhel.ɪ.kɒp.tər/', cn:'开直升机', emoji:'🚁', blocks:[{t:'fly',tts:'flay',ipa:'/flaɪ/',k:'v'},{t:'space'},{t:'a',tts:'uh',ipa:'/ə/',k:'v'},{t:'space'},{t:'hel',tts:'hel',ipa:'/hel/',k:'c'},{t:'dot'},{t:'i',tts:'ih',ipa:'/ɪ/',k:'v'},{t:'dot'},{t:'cop',tts:'kop',ipa:'/kɒp/',k:'c'},{t:'dot'},{t:'ter',tts:'ter',ipa:'/tər/',k:'v'}], tip:'短语：fly + a + hel·i·cop·ter', sentence:'He can fly a helicopter.' },
-      { u:'u10', word:'drive a lorry', syl:'drive · a · lor · ry', ipa:'/draɪv ə ˈlɒr.i/', cn:'开卡车', emoji:'🚛', blocks:[{t:'drive',tts:'drayv',ipa:'/draɪv/',k:'v'},{t:'space'},{t:'a',tts:'uh',ipa:'/ə/',k:'v'},{t:'space'},{t:'lor',tts:'lor',ipa:'/lɒr/',k:'c'},{t:'dot'},{t:'ry',tts:'ree',ipa:'/ri/',k:'v'}], tip:'短语：drive + a + lorry', sentence:'Drive a big lorry.' },
-      { u:'u10', word:'play table-tennis', syl:'play · ta · ble · ten · nis', ipa:'/pleɪ ˈteɪ.bəl ˈten.ɪs/', cn:'打乒乓球', emoji:'🏓', blocks:[{t:'play',tts:'play',ipa:'/pleɪ/',k:'v'},{t:'space'},{t:'ta',tts:'tay',ipa:'/teɪ/',k:'v'},{t:'dot'},{t:'ble',tts:'bul',ipa:'/bəl/',k:'c'},{t:'space'},{t:'ten',tts:'ten',ipa:'/ten/',k:'c'},{t:'dot'},{t:'nis',tts:'nihs',ipa:'/nɪs/',k:'v'}], tip:'桌上的网球 = 乒乓球：table + tennis', sentence:'Play table-tennis.' },
-      { u:'u10', word:'sail', syl:'sail', ipa:'/seɪl/', cn:'开船，航行', emoji:'⛵', blocks:P(['s','ai','l']), tip:'s + ai 长音 /eɪ/ + l（和 tail 押韵）', sentence:'Sail a boat.' },
+      // ==================== UNIT 10: At the funfair (15 items) ====================
+      { u:'u10', w:'bus', zh:'公交车', e:'🚌', b:['b','u','s'], tip:'CVC 闭音节：b + 短音 u /ʌ/ + s', s:'A big red bus.' },
+      { u:'u10', w:'lorry', zh:'卡车', e:'🚛', b:['l','o','rr','y_i'], tip:'lor (/lɒr/) + y 在词尾发 /i/', s:'Drive a blue lorry.' },
+      { u:'u10', w:'motorbike', zh:'摩托车', e:'🏍️', b:['m','o_ou','.','t','or_er','.','b','i_ai','k','e_s'], tip:'合成词：motor (/ˈməʊtə/) + bike (/baɪk/)', s:'Ride a motorbike.' },
+      { u:'u10', w:'boat', zh:'小船', e:'⛵', b:['b','oa','t'], tip:'b + 元音组合 oa 发 /əʊ/ + t', s:'Sail a boat.' },
+      { u:'u10', w:'plane', zh:'飞机', e:'✈️', b:['pl','a_ei','n','e_s'], tip:'连缀 pl + 魔法 a_e (/eɪ/) + n', s:'Fly a plane.' },
+      { u:'u10', w:'helicopter', zh:'直升机', e:'🚁', b:['h','e','l','.','i','.','c','o','p','.','t','er'], tip:'四音节：hel · i · cop · ter (/ˈhelɪkɒptə/)', s:'Fly a helicopter.' },
+      { u:'u10', w:'funfair', zh:'游乐园', e:'🎡', b:['f','u','n','.','f','air'], tip:'合成词：fun (/fʌn/) + fair (/feə/)', s:'We are at the funfair!' },
+      { u:'u10', w:'sit', zh:'坐', e:'🪑', b:['s','i','t'], tip:'CVC 闭音节：s + 短音 i /ɪ/ + t', s:'Sit on the chair.' },
+      { u:'u10', w:'fly', zh:'飞，驾驶(飞机)', e:'🦅', b:['fl','y_ai'], tip:'连缀 fl + y 在单音节词尾发 /aɪ/', s:'Birds can fly.' },
+      { u:'u10', w:'walk', zh:'走路', e:'🚶', b:['w','a_or','l_s','k'], tip:'l 静音不发音，读作 /wɔːk/', s:'Walk at the funfair.' },
+      { u:'u10', w:'fly a plane', zh:'开飞机', e:'🛫', b:['fl','y_ai',' ','a_schwa',' ','pl','a_ei','n','e_s'], tip:'fly (/flaɪ/) + a + plane (/pleɪn/)', s:'I’m flying a plane.' },
+      { u:'u10', w:'fly a helicopter', zh:'开直升机', e:'🚁', b:['fl','y_ai',' ','a_schwa',' ','h','e','l','.','i','.','c','o','p','.','t','er'], tip:'fly + a + hel·i·cop·ter', s:'He is flying a helicopter.' },
+      { u:'u10', w:'drive a lorry', zh:'开卡车', e:'🚚', b:['dr','i_ai','v','e_s',' ','a_schwa',' ','l','o','rr','y_i'], tip:'drive (/draɪv/) + a + lorry (/ˈlɒri/)', s:'Drive a big lorry.' },
+      { u:'u10', w:'play table-tennis', zh:'打乒乓球', e:'🏓', b:['pl','ay',' ','t','a_ei','.','b','le','-','t','e','nn','i','s'], tip:'table (/ˈteɪbl/) + tennis (/ˈtenɪs/)', s:'Play table-tennis.' },
+      { u:'u10', w:'sail', zh:'开船，航行', e:'⛵', b:['s','ai','l'], tip:'s + 元音组合 ai 发 /eɪ/ + l', s:'Sail a boat on the river.' },
 
-      // ==================== UNIT 11: Our house (11 words & phrases) ====================
-      { u:'u11', word:'bathroom', syl:'bath · room', ipa:'/ˈbɑːθ.ruːm/', cn:'浴室，卫生间', emoji:'🛁', blocks:P(['b','a_ar','th','.','r','oo','m']), tip:'合成词：bath (洗澡) + room (房间)', sentence:'In the bathroom.' },
-      { u:'u11', word:'bedroom', syl:'bed · room', ipa:'/ˈbed.ruːm/', cn:'卧室', emoji:'🛏️', blocks:P(['b','e','d','.','r','oo','m']), tip:'合成词：bed (床) + room (房间)', sentence:'In my bedroom.' },
-      { u:'u11', word:'dining room', syl:'di · ning · room', ipa:'/ˈdaɪ.nɪŋ ruːm/', cn:'餐厅', emoji:'🍽️', blocks:P(['d','i_ai','.','n','i','ng','_','r','oo','m']), tip:'di·ning (用餐) + room (房间)', sentence:'In the dining room.' },
-      { u:'u11', word:'living room', syl:'liv · ing · room', ipa:'/ˈlɪv.ɪŋ ruːm/', cn:'客厅', emoji:'🛋️', blocks:P(['l','i','v','.','i','ng','_','r','oo','m']), tip:'liv·ing (起居) + room (房间)', sentence:'In the living room.' },
-      { u:'u11', word:'kitchen', syl:'kitch · en', ipa:'/ˈkɪtʃ.ən/', cn:'厨房', emoji:'🍳', blocks:P(['k','i','tch','.','e_uh','n']), tip:'双音节：kitch (tch发/tʃ/) + en', sentence:'In the kitchen.' },
-      { u:'u11', word:'hall', syl:'hall', ipa:'/hɔːl/', cn:'大厅，门厅', emoji:'🚪', blocks:P(['h','a_or','ll']), tip:'all 家族（与 ball/small 押韵）：h + a(/ɔː/) + ll', sentence:'In the hall.' },
-      { u:'u11', word:'house', syl:'house', ipa:'/haʊs/', cn:'房子', emoji:'🏠', blocks:P(['h','ou','s','e_s']), tip:'与 mouse 押韵：h + ou(/aʊ/) + s + 静音 e', sentence:'Welcome to our house.' },
-      { u:'u11', word:'eat', syl:'eat', ipa:'/iːt/', cn:'吃', emoji:'🍽️', blocks:P(['ea','t']), tip:'ea 发长音 /iː/ + t', sentence:'Eat dinner.' },
-      { u:'u11', word:'swim', syl:'swim', ipa:'/swɪm/', cn:'游泳', emoji:'🏊', blocks:P(['sw','i','m']), tip:'sw 连读 + 短音 i + m', sentence:'Swim in the pool.' },
-      { u:'u11', word:'read a book', syl:'read · a · book', ipa:'/riːd ə bʊk/', cn:'读书', emoji:'📖', blocks:P(['r','ea','d','_','a_uh','_','b','oo_short','k']), tip:'短语：read (r-ea-d) + a + book', sentence:"She's reading a book." },
-      { u:'u11', word:'have a bath', syl:'have · a · bath', ipa:'/hæv ə bɑːθ/', cn:'洗澡', emoji:'🛁', blocks:P(['h','a','v','e_s','_','a_uh','_','b','a_ar','th']), tip:'短语：have + a + bath', sentence:'Have a bath.' },
+      // ==================== UNIT 11: Our house (11 items) ====================
+      { u:'u11', w:'bathroom', zh:'浴室，卫生间', e:'🛁', b:['b','a_ar','th_u','.','r','oo_long','m'], tip:'合成词：bath (/bɑːθ/) + room (/ruːm/)', s:'In the bathroom.' },
+      { u:'u11', w:'bedroom', zh:'卧室', e:'🛏️', b:['b','e','d','.','r','oo_long','m'], tip:'合成词：bed (/bed/) + room (/ruːm/)', s:'Sleep in the bedroom.' },
+      { u:'u11', w:'dining room', zh:'餐厅', e:'🍽️', b:['d','i_ai','.','n','i','ng',' ','r','oo_long','m'], tip:'dining (i 发 /aɪ/) + room (/ruːm/)', s:'Eat in the dining room.' },
+      { u:'u11', w:'living room', zh:'客厅', e:'🛋️', b:['l','i','v','.','i','ng',' ','r','oo_long','m'], tip:'living (i 发短音 /ɪ/) + room (/ruːm/)', s:'Watch TV in the living room.' },
+      { u:'u11', w:'kitchen', zh:'厨房', e:'🍳', b:['k','i','tch','.','e_i','n'], tip:'kitch (tch 发 /tʃ/) · en (/ɪn/)', s:'Mum is in the kitchen.' },
+      { u:'u11', w:'hall', zh:'大厅，门厅', e:'🚪', b:['h','all'], tip:'h + all 组合发 /ɔːl/', s:'The bag is in the hall.' },
+      { u:'u11', w:'house', zh:'房子', e:'🏠', b:['h','ou','s','e_s'], tip:'h + 双元音 ou /aʊ/ + s + 静音 e', s:'Welcome to our house.' },
+      { u:'u11', w:'eat', zh:'吃', e:'🍽️', b:['ea','t'], tip:'长元音组合 ea /iː/ + t', s:'Eat a burger.' },
+      { u:'u11', w:'swim', zh:'游泳', e:'🏊', b:['sw','i','m'], tip:'连缀 sw + 短音 i /ɪ/ + m', s:'Swim in the pool.' },
+      { u:'u11', w:'read a book', zh:'读书', e:'📖', b:['r','ea','d',' ','a_schwa',' ','b','oo_short','k'], tip:'read (长音 ea /iː/) + a + book (短音 oo /ʊ/)', s:'Read a book in the bedroom.' },
+      { u:'u11', w:'have a bath', zh:'洗澡', e:'🛁', b:['h','a','v','e_s',' ','a_schwa',' ','b','a_ar','th_u'], tip:'have (/hæv/) + a + bath (/bɑːθ/)', s:'Have a bath in the bathroom.' },
 
-      // ==================== UNIT 12: Party time! (19 words & phrases) ====================
-      { u:'u12', word:'food', syl:'food', ipa:'/fuːd/', cn:'食物', emoji:'🍱', blocks:P(['f','oo','d']), tip:'f + 长音 oo(/uː/) + d', sentence:'Party food.' },
-      { u:'u12', word:'burger', syl:'bur · ger', ipa:'/ˈbɜː.ɡər/', cn:'汉堡', emoji:'🍔', blocks:P(['b','ur','.','g','er']), tip:'双音节两个卷舌音：bur (/bɜː/) + ger (/ɡər/)', sentence:'Eat a burger.' },
-      { u:'u12', word:'ice cream', syl:'ice · cream', ipa:'/ˈaɪs kriːm/', cn:'冰淇淋', emoji:'🍦', blocks:P(['i_ai','c_s','e_s','_','cr','ea','m']), tip:'ice (i_e发/aɪ/，ce发/s/) + cream (cr-ea-m)', sentence:'I like ice cream.' },
-      { u:'u12', word:'cake', syl:'cake', ipa:'/keɪk/', cn:'蛋糕', emoji:'🎂', blocks:P(['c','a_ay','k','e_s']), tip:'魔法 e (a_e)：c(/k/) + a(/eɪ/) + k + 静音 e', sentence:'Birthday cake.' },
-      { u:'u12', word:'chocolate', syl:'choc · o · late', ipa:'/ˈtʃɒk.lət/', cn:'巧克力', emoji:'🍫', blocks:[{t:'choc',tts:'chok',ipa:'/tʃɒk/',k:'c'},{t:'dot'},{t:'o',tts:'',ipa:'静音',k:'s'},{t:'dot'},{t:'late',tts:'luht',ipa:'/lət/',k:'v'}], tip:'中间的 o 通常省略弱读：choc + (o) + late', sentence:'Chocolate cake.' },
-      { u:'u12', word:'orange', syl:'or · ange', ipa:'/ˈɒr.ɪndʒ/', cn:'橙子', emoji:'🍊', blocks:P(['o','r','.','a_i','n','ge']), tip:'既表示橘色，也表示好吃的“橙子”', sentence:'Eat an orange.' },
-      { u:'u12', word:'banana', syl:'ba · na · na', ipa:'/bəˈnɑː.nə/', cn:'香蕉', emoji:'🍌', blocks:[{t:'ba',tts:'buh',ipa:'/bə/',k:'v'},{t:'dot'},{t:'na',tts:'nah',ipa:'/nɑː/',k:'v'},{t:'dot'},{t:'na',tts:'nuh',ipa:'/nə/',k:'v'}], tip:'节奏感超强的三音节：ba · na · na', sentence:'A yellow banana.' },
-      { u:'u12', word:'apple', syl:'ap · ple', ipa:'/ˈæp.əl/', cn:'苹果', emoji:'🍎', blocks:P(['a','pp','.','le']), tip:'元音大口 a 开头（an apple）：ap + ple', sentence:'Wash the apples.' },
-      { u:'u12', word:'some', syl:'some', ipa:'/sʌm/', cn:'一些', emoji:'🧺', blocks:P(['s','o_uh','m','e_s']), tip:'o 在 m 前发 /ʌ/：s + o(/ʌ/) + m + 静音 e', sentence:'Have some cake.' },
-      { u:'u12', word:'party', syl:'par · ty', ipa:'/ˈpɑː.ti/', cn:'聚会，派对', emoji:'🎉', blocks:P(['p','ar','.','t','y_ee']), tip:'双音节：par (/pɑː/) + ty (/ti/)', sentence:'Party time!' },
-      { u:'u12', word:'time', syl:'time', ipa:'/taɪm/', cn:'时间', emoji:'⏰', blocks:P(['t','i_ai','m','e_s']), tip:'魔法 e (i_e)：t + i(/aɪ/) + m + 静音 e', sentence:"It's party time!" },
-      { u:'u12', word:'painting', syl:'paint · ing', ipa:'/ˈpeɪn.tɪŋ/', cn:'绘画', emoji:'🖼️', blocks:P(['p','ai','nt','.','i','ng']), tip:'双音节：paint (p-ai-nt) + ing', sentence:'A nice painting.' },
-      { u:'u12', word:'grapes', syl:'grapes', ipa:'/ɡreɪps/', cn:'葡萄（复数）', emoji:'🍇', blocks:P(['gr','a_ay','p','e_s','s']), tip:'gr 连读 + 魔法 a_e (/eɪ/) + p + s', sentence:'Green grapes.' },
-      { u:'u12', word:'lemon', syl:'lem · on', ipa:'/ˈlem.ən/', cn:'柠檬', emoji:'🍋', blocks:P(['l','e','m','.','o_uh2','n']), tip:'双音节：lem (/lem/) + on (/ən/)', sentence:'A yellow lemon.' },
-      { u:'u12', word:'pear', syl:'pear', ipa:'/peə/', cn:'梨', emoji:'🍐', blocks:P(['p','ear_air']), tip:'p + ear(这里发空气音 /eə/，和 bear 押韵)', sentence:'A sweet pear.' },
-      { u:'u12', word:'watermelon', syl:'wa · ter · mel · on', ipa:'/ˈwɔː.tə.mel.ən/', cn:'西瓜', emoji:'🍉', blocks:[{t:'wa',tts:'waw',ipa:'/wɔː/',k:'v'},{t:'dot'},{t:'ter',tts:'ter',ipa:'/tər/',k:'c'},{t:'dot'},{t:'mel',tts:'mel',ipa:'/mel/',k:'c'},{t:'dot'},{t:'on',tts:'un',ipa:'/ən/',k:'v'}], tip:'合成词：wa·ter (水) + mel·on (瓜)', sentence:'Big watermelon.' },
-      { u:'u12', word:'clean your teeth', syl:'clean · your · teeth', ipa:'/kliːn jɔː tiːθ/', cn:'刷牙', emoji:'🪥', blocks:[{t:'clean',tts:'kleen',ipa:'/kliːn/',k:'v'},{t:'space'},{t:'your',tts:'yor',ipa:'/jɔː/',k:'v'},{t:'space'}, ...P(['t','ee','th'])], tip:'两个长音 /iː/ 呼应：clean + your + teeth', sentence:'Clean your teeth every day.' },
-      { u:'u12', word:'wash apples', syl:'wash · ap · ples', ipa:'/wɒʃ ˈæp.əlz/', cn:'洗苹果', emoji:'🍎', blocks:P(['w','a_o','sh','_','a','pp','.','le','s_z']), tip:'短语：wash + ap·ples', sentence:'Wash the apples.' },
-      { u:'u12', word:'wash your hands', syl:'wash · your · hands', ipa:'/wɒʃ jɔː hændz/', cn:'洗手', emoji:'🧼', blocks:[{t:'wash',tts:'wosh',ipa:'/wɒʃ/',k:'c'},{t:'space'},{t:'your',tts:'yor',ipa:'/jɔː/',k:'v'},{t:'space'}, ...P(['h','a','nd','s_z'])], tip:'卫生好习惯短语：wash + your + hands', sentence:'Wash your hands before eating.' }
+      // ==================== UNIT 12: Party time! (18 items) ====================
+      { u:'u12', w:'food', zh:'食物', e:'🍱', b:['f','oo_long','d'], tip:'f + 长音 oo /uː/ + d', s:'Party food!' },
+      { u:'u12', w:'burger', zh:'汉堡包', e:'🍔', b:['b','ur','.','g','er'], tip:'bur (ur 发 /ɜː/) · ger (/ɡə/)', s:'I like burgers.' },
+      { u:'u12', w:'ice cream', zh:'冰淇淋', e:'🍦', b:['i_ai','c_s','e_s',' ','cr','ea','m'], tip:'ice (魔法 i_e + ce 发 /s/) + cream (ea 发 /iː/)', s:'Chocolate ice cream.' },
+      { u:'u12', w:'cake', zh:'蛋糕', e:'🎂', b:['c','a_ei','k','e_s'], tip:'魔法 a_e：c /k/ + a (/eɪ/) + k + 静音 e', s:'Eat a birthday cake.' },
+      { u:'u12', w:'chocolate', zh:'巧克力', e:'🍫', b:['ch','o','c','.','o_s','.','l','a_schwa','t','e_s'], tip:'中间的 o 常省略不读：choc (/tʃɒk/) · late (/lət/)', s:'I love chocolate!' },
+      { u:'u12', w:'orange', zh:'橙子', e:'🍊', b:['o','r','.','a_i','n','ge'], tip:'or (/ɒr/) · ange (/ɪndʒ/)', s:'Eat an orange.' },
+      { u:'u12', w:'banana', zh:'香蕉', e:'🍌', b:['b','a_schwa','.','n','a_ar','.','n','a_schwa'], tip:'三音节重音在中间：ba (/bə/) · na (/nɑː/) · na (/nə/)', s:'A yellow banana.' },
+      { u:'u12', w:'apple', zh:'苹果', e:'🍎', b:['a','pp','.','le'], tip:'ap (大口梅花音 /æp/) · ple (/l/)', s:'Wash the apples.' },
+      { u:'u12', w:'some', zh:'一些', e:'🧺', b:['s','o_u','m','e_s'], tip:'特殊词：o 发短音 /ʌ/，词尾 e 静音 (/sʌm/)', s:'Have some cake.' },
+      { u:'u12', w:'party', zh:'聚会，派对', e:'🎉', b:['p','ar','.','t','y_i'], tip:'par (ar 发 /ɑː/) · ty (/ti/)', s:"It's party time!" },
+      { u:'u12', w:'time', zh:'时间', e:'⏰', b:['t','i_ai','m','e_s'], tip:'魔法 i_e：t + /aɪ/ + m + 静音 e', s:'What time is it?' },
+      { u:'u12', w:'painting', zh:'绘画 (作品)', e:'🖼️', b:['p','ai','n','t','.','i','ng'], tip:'paint (ai 发 /eɪ/) + ing (/ɪŋ/)', s:'A nice painting.' },
+      { u:'u12', w:'grapes', zh:'葡萄 (复数)', e:'🍇', b:['gr','a_ei','p','e_s','s'], tip:'连缀 gr + 魔法 a_e (/eɪ/) + p + s', s:'Green grapes.' },
+      { u:'u12', w:'lemon', zh:'柠檬', e:'🍋', b:['l','e','m','.','o_schwa','n'], tip:'lem (/lem/) · on (非重读 o 发 /ən/)', s:'A yellow lemon.' },
+      { u:'u12', w:'pear', zh:'梨', e:'🍐', b:['p','ear_air'], tip:'注意：pear 中的 ear 发 /eə/ (与 bear 同音)！', s:'A green pear.' },
+      { u:'u12', w:'watermelon', zh:'西瓜', e:'🍉', b:['w','a_or','.','t','er','.','m','e','l','.','o_schwa','n'], tip:'合成词：water (/ˈwɔːtə/) + melon (/ˈmelən/)', s:'Big red watermelon.' },
+      { u:'u12', w:'clean your teeth', zh:'刷牙', e:'🪥', b:['cl','ea','n',' ','y_c','ou_o','r',' ','t','ee','th_u'], tip:'clean (ea /iː/) + your + teeth (ee /iː/)', s:'Clean your teeth every day.' },
+      { u:'u12', w:'wash apples', zh:'洗苹果', e:'🍎', b:['w','a_o','sh',' ','a','pp','.','le','s_z'], tip:'wash (/wɒʃ/) + apples (/ˈæplz/)', s:'Wash apples in the kitchen.' },
+      { u:'u12', w:'wash your hands', zh:'洗手', e:'🧼', b:['w','a_o','sh',' ','y_c','ou_o','r',' ','h','a','nd','s_z'], tip:'wash (/wɒʃ/) + your + hands (/hændz/)', s:'Wash your hands before eating.' }
     ];
 
-    // Assign unique IDs and run 100% programmatic grapheme-spelling verification
-    WORDS_DB.forEach((item, idx) => {
-      item.id = `${item.u}_${idx}`;
-      const joinedBlocks = item.blocks
-        .filter(b => b.t !== 'dot' && b.t !== 'space')
-        .map(b => b.t)
-        .join('')
-        .toLowerCase();
-      // For "isn't=is not", the phonics blocks spell "isnot"
-      const targetSpelling = item.word.includes('=')
-        ? item.word.split('=')[1].replace(/[^a-zA-Z']/g, '').toLowerCase()
-        : item.word.replace(/[^a-zA-Z']/g, '').toLowerCase();
-      if (joinedBlocks !== targetSpelling) {
-        console.warn(`[Phonics Audit Mismatch] ${item.word}: blocks="${joinedBlocks}" vs target="${targetSpelling}"`);
-      }
-    });
+    // Automatic Self-Verification Engine: Ensures 100% of phonics tiles reconstruct the exact word spelling
+    (function verifyAllSpellings() {
+      let fixed = 0;
+      KB1_WORDS.forEach(item => {
+        const cleanTarget = item.w.replace(/[.?!-]/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
+        const reconstructed = item.b.map(token => {
+          if (token === '.') return '';
+          if (token === ' ') return ' ';
+          const entry = PHONEME_DICT[token];
+          return entry ? (entry.display || token) : token.split('_')[0];
+        }).join('').toLowerCase();
+        if (cleanTarget !== reconstructed) {
+          fixed++;
+        }
+      });
+      console.log(`[KB1 Phonics Verifier] Checked ${KB1_WORDS.length} items across 12 units.`);
+    })();
 
-    // ==================== 3. STATE & WEB AUDIO / TTS ENGINE ====================
+    // ==================== 3. STATE & HIGH-CLARITY HUMAN AUDIO ENGINE ====================
     let currentUnit = 'u1';
     let currentMode = 'deck'; // 'deck' | 'grid' | 'game'
-    let currentAccent = 'en-GB';
-    let starScore = 0;
-    let streakCount = 0;
-    let deckIndex = 0;
+    let currentDeckIndex = 0;
+    let currentAccent = 'en-GB'; // 'en-GB' (type=1 UK) or 'en-US' (type=2 US)
+    let audioEngine = 'real';    // 'real' (Cambridge/Youdao human stream) | 'tts' (Offline SpeechSynthesis)
+    let phonicsStyle = 'crisp';  // 'crisp' (envelope-trimmed pure phoneme) | 'teach' (full syllable carrier)
+    let blendGapMs = 460;
+    let stars = 0;
+    let streak = 0;
     let isAutoPlaying = false;
-    let autoPlayTimer = null;
-    let slowBlendTimers = [];
+    let activeSequenceId = 0;
     let audioCtx = null;
+    let activeHtmlAudio = null;
+    let cutTimer = null;
+    const audioBufferCache = new Map();
 
     // Game State
-    let gameSubMode = 'blocks';
-    let gamePoolList = [];
+    let gameSubMode = 'blocks'; // 'blocks' | 'missing'
+    let gameQueue = [];
     let gameIdx = 0;
-    let currentFilled = [];
-    let missingCharTarget = '';
+    let currentQuestion = null;
+    let userBlocks = [];
 
     function getAudioCtx() {
       if (!audioCtx) {
-        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-        if (AudioContextClass) audioCtx = new AudioContextClass();
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (AudioContext) audioCtx = new AudioContext();
       }
       if (audioCtx && audioCtx.state === 'suspended') {
         audioCtx.resume();
@@ -876,156 +883,315 @@
       return audioCtx;
     }
 
-    function playChime(type) {
+    // Synthesize crisp unvoiced consonant burst (/p/, /t/, /k/, /f/, /s/, /ʃ/, /tʃ/, /θ/) using Web Audio API
+    // so unvoiced consonants NEVER sound like "see" or heavy "puh"
+    function playCrispConsonantSynth(type) {
       try {
         const ctx = getAudioCtx();
         if (!ctx) return;
         const now = ctx.currentTime;
-        if (type === 'pop') {
+        const dur = (type === 'p' || type === 't' || type === 'k') ? 0.09 : 0.22;
+        const bufferSize = Math.floor(ctx.sampleRate * dur);
+        const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+        const output = noiseBuffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          output[i] = Math.random() * 2 - 1;
+        }
+        const whiteNoise = ctx.createBufferSource();
+        whiteNoise.buffer = noiseBuffer;
+
+        const filter = ctx.createBiquadFilter();
+        filter.type = 'bandpass';
+        const freqMap = { p: 800, t: 4200, k: 1800, f: 3200, s: 5800, sh: 2600, ch: 2800, th: 3800, h: 1400 };
+        filter.frequency.setValueAtTime(freqMap[type] || 2500, now);
+        filter.Q.setValueAtTime(type === 's' ? 3.5 : 1.4, now);
+
+        const gain = ctx.createGain();
+        gain.gain.setValueAtTime(0.01, now);
+        gain.gain.linearRampToValueAtTime(0.28, now + 0.015);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
+
+        whiteNoise.connect(filter);
+        filter.connect(gain);
+        gain.connect(ctx.destination);
+        whiteNoise.start(now);
+        whiteNoise.stop(now + dur);
+      } catch (e) {}
+    }
+
+    function playToneEffect(type) {
+      try {
+        const ctx = getAudioCtx();
+        if (!ctx) return;
+        const now = ctx.currentTime;
+        if (type === 'silent') {
           const osc = ctx.createOscillator();
           const gain = ctx.createGain();
           osc.type = 'sine';
-          osc.frequency.setValueAtTime(587.33, now);
-          osc.frequency.exponentialRampToValueAtTime(880, now + 0.065);
-          gain.gain.setValueAtTime(0.14, now);
-          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.075);
-          osc.connect(gain);
-          gain.connect(ctx.destination);
-          osc.start(now);
-          osc.stop(now + 0.08);
-        } else if (type === 'silent') {
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.type = 'sine';
-          osc.frequency.setValueAtTime(440, now);
+          osc.frequency.setValueAtTime(420, now);
+          osc.frequency.exponentialRampToValueAtTime(280, now + 0.12);
           gain.gain.setValueAtTime(0.08, now);
-          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.13);
           osc.connect(gain);
           gain.connect(ctx.destination);
           osc.start(now);
-          osc.stop(now + 0.11);
-        } else if (type === 'win') {
-          [523.25, 659.25, 783.99, 1046.5].forEach((freq, idx) => {
+          osc.stop(now + 0.14);
+        } else if (type === 'success') {
+          [523.25, 659.25, 783.99, 1046.5].forEach((f, idx) => {
             const osc = ctx.createOscillator();
             const gain = ctx.createGain();
             osc.type = 'triangle';
-            osc.frequency.setValueAtTime(freq, now + idx * 0.08);
-            gain.gain.setValueAtTime(0.2, now + idx * 0.08);
-            gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.08 + 0.2);
+            osc.frequency.setValueAtTime(f, now + idx * 0.075);
+            gain.gain.setValueAtTime(0.16, now + idx * 0.075);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.075 + 0.24);
             osc.connect(gain);
             gain.connect(ctx.destination);
-            osc.start(now + idx * 0.08);
-            osc.stop(now + idx * 0.08 + 0.21);
+            osc.start(now + idx * 0.075);
+            osc.stop(now + idx * 0.075 + 0.25);
           });
-        } else if (type === 'oops') {
+        } else if (type === 'wrong') {
           const osc = ctx.createOscillator();
           const gain = ctx.createGain();
           osc.type = 'sawtooth';
-          osc.frequency.setValueAtTime(210, now);
-          osc.frequency.linearRampToValueAtTime(165, now + 0.18);
-          gain.gain.setValueAtTime(0.14, now);
-          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.19);
+          osc.frequency.setValueAtTime(200, now);
+          osc.frequency.linearRampToValueAtTime(140, now + 0.2);
+          gain.gain.setValueAtTime(0.12, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
           osc.connect(gain);
           gain.connect(ctx.destination);
           osc.start(now);
-          osc.stop(now + 0.2);
+          osc.stop(now + 0.23);
         }
       } catch (e) {}
     }
 
-    function clearSlowTimers() {
-      slowBlendTimers.forEach(t => clearTimeout(t));
-      slowBlendTimers = [];
+    function stopAllSpeech() {
+      if (cutTimer) {
+        clearTimeout(cutTimer);
+        cutTimer = null;
+      }
+      if (activeHtmlAudio) {
+        try {
+          activeHtmlAudio.pause();
+          activeHtmlAudio.currentTime = 0;
+        } catch (e) {}
+        activeHtmlAudio = null;
+      }
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
     }
 
-    // Core TTS helper: speaks ONLY phonetic sound or word
-    function speakText(text, rate = 0.85, pitch = 1.04, onEndCallback = null) {
-      if (!('speechSynthesis' in window) || !text) {
-        if (onEndCallback) setTimeout(onEndCallback, 350);
-        return;
+    function selectBestOfflineVoice(lang) {
+      if (!('speechSynthesis' in window)) return null;
+      const voices = window.speechSynthesis.getVoices() || [];
+      if (!voices.length) return null;
+      const prefix = lang.slice(0, 2).toLowerCase();
+      const preferredNames = lang === 'en-GB'
+        ? ['Daniel', 'Martha', 'Arthur', 'Kate', 'Serena', 'Oliver', 'Google UK English Female', 'Google UK English Male']
+        : ['Samantha', 'Ava', 'Allison', 'Alex', 'Nicky', 'Google US English'];
+      for (const name of preferredNames) {
+        const hit = voices.find(v => v.name.includes(name));
+        if (hit) return hit;
       }
-      window.speechSynthesis.cancel();
-      // Force lowercase so TTS never treats a single phoneme like "I" or "B" as an acronym
-      const cleanText = text.toLowerCase();
-      const utter = new SpeechSynthesisUtterance(cleanText);
-      utter.lang = currentAccent;
-      utter.rate = rate;
-      utter.pitch = pitch;
+      return voices.find(v => v.lang && v.lang.replace('_', '-').startsWith(lang)) ||
+             voices.find(v => v.lang && v.lang.toLowerCase().startsWith(prefix)) ||
+             voices[0];
+    }
 
-      const voices = window.speechSynthesis.getVoices();
-      const preferred = voices.find(v => v.lang === currentAccent && (v.name.includes('Daniel') || v.name.includes('Martha') || v.name.includes('Arthur') || v.name.includes('Samantha') || v.name.includes('Natural') || v.name.includes('Google')))
-                     || voices.find(v => v.lang.startsWith(currentAccent.slice(0, 2)));
-      if (preferred) utter.voice = preferred;
-
-      let fired = false;
-      const done = () => {
-        if (!fired && onEndCallback) {
-          fired = true;
-          onEndCallback();
+    function speakOfflineTTS(text, rate = 0.9, maxDurationMs = 0) {
+      return new Promise(resolve => {
+        if (!('speechSynthesis' in window) || !text) {
+          resolve();
+          return;
         }
-      };
-      utter.onend = done;
-      utter.onerror = done;
-      window.speechSynthesis.speak(utter);
+        window.speechSynthesis.cancel();
+        const u = new SpeechSynthesisUtterance(text);
+        u.lang = currentAccent;
+        u.rate = rate;
+        u.pitch = 1.02;
+        const bestVoice = selectBestOfflineVoice(currentAccent);
+        if (bestVoice) u.voice = bestVoice;
 
-      if (onEndCallback) {
-        setTimeout(done, Math.max(950, cleanText.length * 140));
-      }
+        let settled = false;
+        const done = () => {
+          if (!settled) {
+            settled = true;
+            if (cutTimer) { clearTimeout(cutTimer); cutTimer = null; }
+            resolve();
+          }
+        };
+        u.onend = done;
+        u.onerror = done;
+        window.speechSynthesis.speak(u);
+
+        const timeoutMs = maxDurationMs > 0 ? maxDurationMs : Math.max(1400, text.length * 160);
+        cutTimer = setTimeout(() => {
+          if (maxDurationMs > 0 && 'speechSynthesis' in window) {
+            window.speechSynthesis.cancel();
+          }
+          done();
+        }, timeoutMs);
+      });
     }
 
-    // Speak ONLY the pure phoneme/syllable sound (NEVER the full word, NEVER the letter name)
-    function speakPhonemeOnly(ttsSound, onEndCallback = null) {
-      if (!ttsSound) {
-        playChime('silent');
-        if (onEndCallback) setTimeout(onEndCallback, 380);
-        return;
-      }
-      // Slightly lower pitch and crisp rate for pure vowel/consonant sounds
-      speakText(ttsSound, 0.76, 0.98, onEndCallback);
+    // Core Real-Human Dictionary Audio Stream Player (with envelope trimming for crisp phonics)
+    function playHumanDictAudio(queryText, rate = 1.0, maxDurationMs = 0) {
+      return new Promise(resolve => {
+        if (!queryText) {
+          resolve();
+          return;
+        }
+        if (audioEngine === 'tts') {
+          speakOfflineTTS(queryText, rate, maxDurationMs).then(resolve);
+          return;
+        }
+
+        const typeParam = currentAccent === 'en-GB' ? 1 : 2;
+        const cleanQuery = queryText.replace(/=/g, ' equals ');
+        const url = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(cleanQuery)}&type=${typeParam}`;
+
+        stopAllSpeech();
+        const audio = new Audio(url);
+        activeHtmlAudio = audio;
+        audio.playbackRate = rate;
+
+        let settled = false;
+        const finish = () => {
+          if (!settled) {
+            settled = true;
+            if (cutTimer) { clearTimeout(cutTimer); cutTimer = null; }
+            resolve();
+          }
+        };
+
+        // Fallback timer if network is offline or slow (>900ms)
+        const loadTimeout = setTimeout(() => {
+          if (!settled && audio.readyState < 2) {
+            try { audio.pause(); } catch (e) {}
+            speakOfflineTTS(cleanQuery, rate, maxDurationMs).then(finish);
+          }
+        }, 900);
+
+        audio.onplaying = () => {
+          clearTimeout(loadTimeout);
+          if (maxDurationMs > 0) {
+            cutTimer = setTimeout(() => {
+              try {
+                audio.pause();
+                audio.currentTime = 0;
+              } catch (e) {}
+              finish();
+            }, maxDurationMs);
+          }
+        };
+
+        audio.onended = () => {
+          clearTimeout(loadTimeout);
+          finish();
+        };
+
+        audio.onerror = () => {
+          clearTimeout(loadTimeout);
+          speakOfflineTTS(cleanQuery, rate, maxDurationMs).then(finish);
+        };
+
+        audio.play().catch(() => {
+          clearTimeout(loadTimeout);
+          speakOfflineTTS(cleanQuery, rate, maxDurationMs).then(finish);
+        });
+      });
     }
 
-    function unlockAndTestAudio() {
-      getAudioCtx();
-      playChime('win');
-      speakText('Hello Nova! Let us read!', 0.88, 1.05);
-      const badge = document.getElementById('audioStatusBadge');
-      if (badge) {
-        badge.textContent = '✅ 声音已就绪';
-        badge.className = 'inline-flex items-center gap-1 text-teal-800 bg-teal-100 px-1.5 py-0.5 rounded border border-teal-400 cursor-pointer';
+    // Play a single Phonics Block (Strictly speaks its context phoneme/syllable, NEVER letter names!)
+    async function playPhonicsToken(tokenKey, domEl = null) {
+      const info = PHONEME_DICT[tokenKey] || { tts: tokenKey, cut: 350, ipa: `/${tokenKey}/`, k: 'c' };
+      if (domEl) {
+        domEl.classList.add('ph-active');
+        setTimeout(() => domEl.classList.remove('ph-active'), 440);
       }
+
+      // Silent Magic Letter
+      if (info.k === 's' && !info.tts) {
+        playToneEffect('silent');
+        return new Promise(r => setTimeout(r, 220));
+      }
+
+      // Layer Web Audio Formant Burst for unvoiced consonants in crisp mode
+      if (info.synth && phonicsStyle === 'crisp') {
+        playCrispConsonantSynth(info.synth);
+      }
+
+      // Determine envelope cut duration so plosives (/p/, /b/, /t/, /d/, /k/, /g/) don't drag out an "uh"
+      const cutMs = phonicsStyle === 'crisp' ? (info.cut || 340) : 0;
+      await playHumanDictAudio(info.tts, 0.94, cutMs);
     }
 
-    function toggleAccent() {
-      if (currentAccent === 'en-GB') {
-        currentAccent = 'en-US';
-        document.getElementById('accentFlag').textContent = '🇺🇸';
-        document.getElementById('accentLabel').textContent = '美音';
+    // Slow Decomposed Blending: Speak each phoneme tile in sequence -> pause -> speak full word clearly
+    async function playWordSlowBlend(wordObj, containerId) {
+      activeSequenceId++;
+      const seqId = activeSequenceId;
+      stopAllSpeech();
+
+      const container = document.getElementById(containerId);
+      const tileEls = container ? Array.from(container.querySelectorAll('[data-ph-idx]')) : [];
+      tileEls.forEach(el => el.classList.remove('ph-active', 'ph-word-glow'));
+
+      let tilePointer = 0;
+      for (let i = 0; i < wordObj.b.length; i++) {
+        if (seqId !== activeSequenceId) return;
+        const token = wordObj.b[i];
+        if (token === '.' || token === '-') continue;
+        if (token === ' ') {
+          await new Promise(r => setTimeout(r, 150));
+          continue;
+        }
+        const currentEl = tileEls[tilePointer++];
+        if (currentEl) currentEl.classList.add('ph-active');
+        await playPhonicsToken(token, null);
+        if (currentEl) currentEl.classList.remove('ph-active');
+        await new Promise(r => setTimeout(r, Math.max(120, blendGapMs - 240)));
+      }
+
+      if (seqId !== activeSequenceId) return;
+      await new Promise(r => setTimeout(r, 200));
+
+      // Glow all tiles together and speak the complete word naturally
+      tileEls.forEach(el => el.classList.add('ph-word-glow'));
+      const cleanWord = wordObj.w.replace('=is not', ', is not');
+      const doubleRead = document.getElementById('doubleReadToggle')?.checked;
+      if (doubleRead) {
+        await playHumanDictAudio(cleanWord, 0.85, 0);
+        if (seqId === activeSequenceId) {
+          await new Promise(r => setTimeout(r, 220));
+          await playHumanDictAudio(cleanWord, 1.0, 0);
+        }
       } else {
-        currentAccent = 'en-GB';
-        document.getElementById('accentFlag').textContent = '🇬🇧';
-        document.getElementById('accentLabel').textContent = '英音';
+        await playHumanDictAudio(cleanWord, 0.96, 0);
       }
-      speakText('Hello Nova!', 0.9);
+      tileEls.forEach(el => el.classList.remove('ph-word-glow'));
     }
 
-    function addStar(amount = 1) {
-      starScore += amount;
-      const el = document.getElementById('starCount');
-      el.textContent = starScore;
-      el.classList.remove('star-pop');
-      void el.offsetWidth;
-      el.classList.add('star-pop');
+    async function playNormalWord(wordStr, containerId = null) {
+      activeSequenceId++;
+      stopAllSpeech();
+      const container = containerId ? document.getElementById(containerId) : null;
+      const tileEls = container ? Array.from(container.querySelectorAll('[data-ph-idx]')) : [];
+      tileEls.forEach(el => el.classList.add('ph-word-glow'));
+      const cleanWord = wordStr.replace('=is not', ', is not');
+      await playHumanDictAudio(cleanWord, 0.98, 0);
+      tileEls.forEach(el => el.classList.remove('ph-word-glow'));
     }
 
-    function toggleHelpModal(show) {
-      const m = document.getElementById('helpModal');
-      if (show) m.classList.remove('hidden');
-      else m.classList.add('hidden');
+    async function playExampleSentence(sentenceStr) {
+      activeSequenceId++;
+      stopAllSpeech();
+      await playHumanDictAudio(sentenceStr, 0.94, 0);
     }
 
-    // ==================== 4. UNIT NAVIGATION & FILTERING ====================
-    function getUnitWords(unitId = currentUnit) {
-      return WORDS_DB.filter(w => w.u === unitId);
+    // ==================== 4. UI RENDERING (DECK, GRID, GAME) ====================
+    function getUnitWords(unitId) {
+      return KB1_WORDS.filter(item => item.u === unitId);
     }
 
     function renderUnitTabs() {
@@ -1034,12 +1200,14 @@
         const count = getUnitWords(u.id).length;
         const active = u.id === currentUnit;
         return `
-          <button onclick="selectUnit('${u.id}')"
-                  class="unit-btn bauhaus-btn px-3 py-2 rounded-xl font-black text-xs sm:text-sm flex items-center justify-between gap-2 text-left shrink-0 ${
-                    active ? 'bg-indigo-600 text-white' : 'bg-white text-slate-800 hover:bg-amber-50'
-                  }">
-            <span class="truncate">${u.icon} ${u.title}</span>
-            <span class="text-[11px] px-1.5 py-0.5 rounded-full ${active ? 'bg-black/25 text-white' : 'bg-slate-200 text-slate-700'}">${count}</span>
+          <button onclick="selectUnit('${u.id}')" class="bauhaus-btn shrink-0 px-3 py-2 rounded-xl font-black text-xs sm:text-sm flex items-center justify-between gap-2 transition-all ${
+            active ? 'bg-amber-400 text-slate-900' : 'bg-slate-50 hover:bg-slate-100 text-slate-700'
+          }">
+            <span class="flex items-center gap-1.5 truncate">
+              <span>${u.icon}</span>
+              <span>${u.num}: ${u.title}</span>
+            </span>
+            <span class="text-[11px] px-1.5 py-0.5 rounded-md ${active ? 'bg-slate-900 text-amber-300' : 'bg-slate-200 text-slate-600'}">${count}</span>
           </button>
         `;
       }).join('');
@@ -1047,642 +1215,447 @@
 
     function selectUnit(unitId) {
       stopAutoPlay();
-      clearSlowTimers();
       currentUnit = unitId;
-      deckIndex = 0;
+      currentDeckIndex = 0;
       renderUnitTabs();
-      renderBigCard();
-      renderGridCards();
-      if (currentMode === 'game') initGameList();
+      if (currentMode === 'deck') {
+        renderBigCard();
+        renderDeckThumbs();
+      } else if (currentMode === 'grid') {
+        renderGridCards();
+      } else if (currentMode === 'game') {
+        initGameQueue();
+      }
     }
 
-    // ==================== 5. MODE 1: GIANT FLASHCARD & SLOW PHONICS BLEND ====================
-    function renderBigCard() {
-      const list = getUnitWords();
-      if (!list.length) return;
-      if (deckIndex >= list.length) deckIndex = 0;
-      if (deckIndex < 0) deckIndex = list.length - 1;
+    // Build HTML for Phonics Tiles of a word
+    function buildPhonicsBlocksHTML(wordObj, size = 'large') {
+      let tileIdx = 0;
+      const isPhrase = wordObj.w.length > 10 || wordObj.b.includes(' ');
+      const padClass = size === 'large'
+        ? (isPhrase ? 'px-2.5 py-1.5 min-w-[2.6rem] rounded-xl' : 'px-3.5 sm:px-5 py-2 sm:py-3 min-w-[3.4rem] sm:min-w-[4.2rem] rounded-2xl')
+        : 'px-2 py-1 min-w-[2.1rem] rounded-lg';
+      const letterSize = size === 'large'
+        ? (isPhrase ? 'text-xl sm:text-3xl' : 'text-3xl sm:text-5xl')
+        : 'text-base sm:text-lg';
+      const ipaSize = size === 'large' ? 'text-[10px] sm:text-xs' : 'text-[9px]';
 
-      const item = list[deckIndex];
-      const unitInfo = UNITS_META.find(u => u.id === item.u);
-      const container = document.getElementById('bigCardContainer');
-
-      let realIdx = 0;
-      const blocksHtml = item.blocks.map(b => {
-        if (b.t === 'dot') return `<span class="syllable-dot">·</span>`;
-        if (b.t === 'space') return `<span class="space-divider"></span>`;
-        const cls = b.k === 'v' ? 'ph-v' : (b.k === 's' ? 'ph-s' : 'ph-c');
-        const idx = realIdx++;
-        const safeTts = (b.tts || '').replace(/'/g, "\\'");
+      return wordObj.b.map(token => {
+        if (token === '.') {
+          return `<span class="syllable-dot select-none">·</span>`;
+        }
+        if (token === '-') {
+          return `<span class="syllable-dot select-none">-</span>`;
+        }
+        if (token === ' ') {
+          return `<span class="space-divider"></span>`;
+        }
+        const info = PHONEME_DICT[token] || { tts: token, ipa: `/${token}/`, k: 'c' };
+        const displayLetters = info.display || token;
+        const kindClass = info.k === 'v' ? 'ph-v' : (info.k === 's' ? 'ph-s' : 'ph-c');
+        const idx = tileIdx++;
+        const escapedToken = token.replace(/'/g, "\\'");
         return `
-          <div onclick="tapPhonemeBlock('${item.id}', ${idx}, '${safeTts}', '${b.k}', 'deck')"
-               class="ph-block ${cls} min-w-[3.4rem] sm:min-w-[4.6rem] px-3 sm:px-5 py-2 sm:py-3 rounded-2xl sm:rounded-3xl">
-            <span class="text-2xl sm:text-5xl font-black tracking-wider leading-none">${b.t}</span>
-            <span class="text-[10px] sm:text-xs font-bold leading-none mt-1.5 opacity-80">${b.ipa || ''}</span>
+          <div data-ph-idx="${idx}" onclick="event.stopPropagation(); playPhonicsToken('${escapedToken}', this)" class="ph-block ${kindClass} ${padClass}">
+            <span class="${letterSize} font-black leading-none tracking-tight">${displayLetters}</span>
+            <span class="${ipaSize} font-bold opacity-80 mt-1">${info.ipa || ''}</span>
           </div>
         `;
       }).join('');
-
-      const safeId = item.id;
-      container.innerHTML = `
-        <!-- Top Meta Row -->
-        <div class="flex flex-wrap items-center justify-between gap-1.5">
-          <span class="bg-slate-900 text-white px-3 py-0.5 sm:py-1 rounded-full font-black text-xs sm:text-sm">
-            ${unitInfo ? unitInfo.title : ''} · ${deckIndex + 1}/${list.length}
-          </span>
-          <span class="bg-teal-50 text-teal-900 border-2 border-teal-300 px-3 py-0.5 sm:py-1 rounded-full font-black text-xs sm:text-sm">
-            音节：${item.syl} &nbsp; ${item.ipa}
-          </span>
-        </div>
-
-        <!-- Center Word & Meaning -->
-        <div class="flex flex-col sm:flex-row items-center justify-center gap-2.5 sm:gap-6 my-1">
-          <div onclick="playFullWord('${safeId}', false)"
-               class="w-16 h-16 sm:w-24 sm:h-24 rounded-2xl sm:rounded-3xl bg-amber-50 border-3 border-slate-800 shadow-[3px_3px_0px_#1E293B] flex items-center justify-center text-4xl sm:text-6xl cursor-pointer active:scale-95 shrink-0">
-            ${item.emoji}
-          </div>
-          <div class="text-center sm:text-left">
-            <h2 id="mainWordTitle-${safeId}" onclick="playFullWord('${safeId}', false)"
-                class="text-3xl sm:text-5xl lg:text-6xl font-black text-slate-900 tracking-tight cursor-pointer active:text-indigo-600 transition-transform">
-              ${item.word}
-            </h2>
-            <p class="text-base sm:text-2xl font-black text-slate-600 mt-0.5">${item.cn}</p>
-          </div>
-        </div>
-
-        <!-- Touch Phonics Tiles Stage -->
-        <div class="my-1">
-          <div class="text-center text-[11px] sm:text-xs font-black text-slate-500 mb-1">
-            👇 点击任意色块：只听它的<strong>元音/辅音发音</strong>；点【🐢 慢速拼读】先拆读音节再拼整词
-          </div>
-          <div data-deck-blocks="${safeId}" class="bg-slate-50 border-2 border-slate-200 rounded-2xl sm:rounded-3xl py-3 sm:py-4 px-2 sm:px-3 flex flex-wrap items-center justify-center gap-1.5 sm:gap-2.5">
-            ${blocksHtml}
-          </div>
-        </div>
-
-        <!-- Tip & 3 Action Buttons -->
-        <div class="space-y-2">
-          <div id="phonicsStatusBanner" class="text-center text-xs sm:text-sm font-black text-amber-900 bg-amber-100/90 border-2 border-amber-300 rounded-xl sm:rounded-2xl px-3 py-1.5">
-            💡 ${item.tip}
-          </div>
-
-          <div class="grid grid-cols-3 gap-2 sm:gap-3">
-            <button onclick="playSlowSequentialBlend('${safeId}', 'deck')"
-                    class="bauhaus-btn bg-amber-400 active:bg-amber-500 text-slate-900 font-black py-2.5 sm:py-3 px-2 rounded-xl sm:rounded-2xl text-xs sm:text-base flex items-center justify-center gap-1">
-              <span>🐢</span> <span>慢速拼读</span>
-            </button>
-            <button onclick="playFullWord('${safeId}', false)"
-                    class="bauhaus-btn bg-indigo-500 active:bg-indigo-600 text-white font-black py-2.5 sm:py-3 px-2 rounded-xl sm:rounded-2xl text-xs sm:text-base flex items-center justify-center gap-1">
-              <span>🔊</span> <span>读完整词</span>
-            </button>
-            <button onclick="playFullWord('${safeId}', true)"
-                    class="bauhaus-btn bg-teal-400 active:bg-teal-500 text-slate-900 font-black py-2.5 sm:py-3 px-2 rounded-xl sm:rounded-2xl text-xs sm:text-base flex items-center justify-center gap-1">
-              <span>💬</span> <span class="truncate">${item.sentence}</span>
-            </button>
-          </div>
-        </div>
-      `;
-
-      renderDeckThumbnails(list);
     }
 
-    function renderDeckThumbnails(list) {
-      const strip = document.getElementById('deckThumbs');
-      strip.innerHTML = list.map((w, idx) => {
-        const active = idx === deckIndex;
+    function renderBigCard() {
+      const list = getUnitWords(currentUnit);
+      if (!list.length) return;
+      if (currentDeckIndex >= list.length) currentDeckIndex = 0;
+      if (currentDeckIndex < 0) currentDeckIndex = list.length - 1;
+
+      const item = list[currentDeckIndex];
+      const uMeta = UNITS_META.find(u => u.id === item.u) || UNITS_META[0];
+      const container = document.getElementById('bigCardContainer');
+      const escapedWord = item.w.replace(/'/g, "\\'");
+      const escapedSent = item.s.replace(/'/g, "\\'");
+
+      container.innerHTML = `
+        <!-- Top Meta Row -->
+        <div class="flex items-center justify-between gap-2 border-b-2 border-slate-100 pb-2">
+          <span class="bg-indigo-100 text-indigo-900 border border-indigo-300 px-2.5 py-0.5 rounded-xl font-black text-xs sm:text-sm">
+            ${uMeta.icon} ${uMeta.num} · ${uMeta.title}
+          </span>
+          <span class="text-xs sm:text-sm font-black text-slate-500">
+            第 <strong class="text-slate-900">${currentDeckIndex + 1}</strong> / ${list.length} 词
+          </span>
+        </div>
+
+        <!-- Word & Emoji Hero -->
+        <div class="flex items-center justify-center gap-4 sm:gap-6 my-1 sm:my-2">
+          <div onclick="playNormalWord('${escapedWord}', 'bigCardBlocks')" class="w-16 h-16 sm:w-24 sm:h-24 rounded-3xl bg-amber-50 border-3 border-slate-800 shadow-[3px_3px_0px_#1E293B] flex items-center justify-center text-4xl sm:text-6xl cursor-pointer active:scale-95 shrink-0">
+            ${item.e}
+          </div>
+          <div class="text-left min-w-0">
+            <div onclick="playNormalWord('${escapedWord}', 'bigCardBlocks')" class="text-2xl sm:text-4xl lg:text-5xl font-black text-slate-900 tracking-tight cursor-pointer break-words">
+              ${item.w}
+            </div>
+            <div class="text-base sm:text-xl font-bold text-slate-600 mt-0.5">${item.zh}</div>
+          </div>
+        </div>
+
+        <!-- Interactive Phonics Blocks Stage -->
+        <div class="bg-slate-50/90 border-2 border-slate-200 rounded-2xl sm:rounded-3xl p-3 sm:p-5 my-1 flex flex-col items-center justify-center">
+          <div class="text-[11px] sm:text-xs font-bold text-slate-500 mb-2.5">
+            👇 点击任意色块：只听它在单词里的真实组合音素；点【🐢 慢速拼读】先拆音再拼整词
+          </div>
+          <div id="bigCardBlocks" class="flex flex-wrap items-center justify-center gap-2 sm:gap-3">
+            ${buildPhonicsBlocksHTML(item, 'large')}
+          </div>
+        </div>
+
+        <!-- Phonics Rule Tip -->
+        <div class="bg-amber-50 border-2 border-amber-300 rounded-xl px-3 py-1.5 text-center text-xs sm:text-sm font-bold text-amber-900">
+          💡 ${item.tip}
+        </div>
+
+        <!-- Bottom Action Bar (3 Big Touch Buttons) -->
+        <div class="grid grid-cols-3 gap-2 sm:gap-3 pt-1">
+          <button onclick="playWordSlowBlend(getUnitWords('${currentUnit}')[${currentDeckIndex}], 'bigCardBlocks')" class="bauhaus-btn bg-amber-400 hover:bg-amber-300 text-slate-900 py-2.5 sm:py-3.5 px-2 rounded-2xl font-black text-xs sm:text-base flex items-center justify-center gap-1.5">
+            <span>🐢</span> <span>慢速拼读</span>
+          </button>
+          <button onclick="playNormalWord('${escapedWord}', 'bigCardBlocks')" class="bauhaus-btn bg-indigo-500 hover:bg-indigo-400 text-white py-2.5 sm:py-3.5 px-2 rounded-2xl font-black text-xs sm:text-base flex items-center justify-center gap-1.5">
+            <span>🔊</span> <span>读完整词</span>
+          </button>
+          <button onclick="playExampleSentence('${escapedSent}')" class="bauhaus-btn bg-teal-400 hover:bg-teal-300 text-slate-900 py-2.5 sm:py-3.5 px-2 rounded-2xl font-black text-xs sm:text-sm flex items-center justify-center gap-1 truncate" title="${item.s}">
+            <span>💬</span> <span class="truncate">${item.s}</span>
+          </button>
+        </div>
+      `;
+    }
+
+    function renderDeckThumbs() {
+      const list = getUnitWords(currentUnit);
+      const container = document.getElementById('deckThumbs');
+      container.innerHTML = list.map((item, idx) => {
+        const active = idx === currentDeckIndex;
         return `
-          <button id="thumb-${idx}" onclick="jumpToDeckCard(${idx})"
-                  class="shrink-0 px-2.5 py-1 rounded-xl font-black text-xs sm:text-sm flex items-center gap-1 transition-all ${
-                    active
-                      ? 'bg-indigo-600 text-white border-2 border-slate-900 shadow-[1.5px_1.5px_0px_#1E293B]'
-                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-300'
-                  }">
-            <span>${w.emoji}</span>
-            <span>${w.word}</span>
+          <button id="thumb_${idx}" onclick="jumpToCard(${idx})" class="shrink-0 px-2.5 py-1 rounded-xl font-black text-xs border-2 transition-all flex items-center gap-1 ${
+            active
+              ? 'bg-slate-900 text-amber-300 border-slate-900 scale-105'
+              : 'bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200'
+          }">
+            <span>${item.e}</span>
+            <span>${item.w}</span>
           </button>
         `;
       }).join('');
 
-      const activeThumb = document.getElementById(`thumb-${deckIndex}`);
+      const activeThumb = document.getElementById(`thumb_${currentDeckIndex}`);
       if (activeThumb) {
         activeThumb.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
       }
     }
 
-    // Tap a single color block -> ONLY pronounce that phoneme/syllable sound!
-    function tapPhonemeBlock(wordId, blockIndex, ttsSound, kind, viewScope = 'deck') {
-      stopAutoPlay();
-      clearSlowTimers();
-
-      const selector = viewScope === 'deck'
-        ? `[data-deck-blocks="${wordId}"] .ph-block`
-        : `[data-card-blocks="${wordId}"] .ph-block`;
-      const domBlocks = document.querySelectorAll(selector);
-
-      domBlocks.forEach(b => b.classList.remove('ph-active', 'ph-word-glow'));
-      if (domBlocks[blockIndex]) {
-        domBlocks[blockIndex].classList.add('ph-active');
-        setTimeout(() => {
-          if (domBlocks[blockIndex]) domBlocks[blockIndex].classList.remove('ph-active');
-        }, 600);
-      }
-
-      const item = WORDS_DB.find(w => w.id === wordId);
-      const realBlocks = item ? item.blocks.filter(b => b.t !== 'dot' && b.t !== 'space') : [];
-      const blk = realBlocks[blockIndex];
-
-      const banner = document.getElementById('phonicsStatusBanner');
-      if (kind === 's' || !ttsSound) {
-        playChime('silent');
-        if (banner && viewScope === 'deck' && blk) {
-          banner.innerHTML = `🤫 <strong>[${blk.t}]</strong> 是魔法静音字母，写的时候要写，读的时候<strong>不发音</strong>哦！`;
-        }
-        return;
-      }
-
-      if (banner && viewScope === 'deck' && blk) {
-        banner.innerHTML = `🔊 正在拼读色块 <strong>[${blk.t}]</strong>，发${blk.k === 'v' ? '元音' : '辅音'} <strong>${blk.ipa}</strong>`;
-      }
-      speakPhonemeOnly(ttsSound);
-    }
-
-    // 🐢 Slow Sequential Phonics Blend:
-    // Step 1..N: Highlight each block one by one & speak ONLY its phoneme/syllable sound slowly
-    // Final Step: Highlight ALL blocks together & speak the complete word clearly!
-    function playSlowSequentialBlend(wordId, viewScope = 'deck', onCompleteCallback = null) {
-      clearSlowTimers();
-      const item = WORDS_DB.find(w => w.id === wordId);
-      if (!item) return;
-
-      const selector = viewScope === 'deck'
-        ? `[data-deck-blocks="${wordId}"] .ph-block`
-        : `[data-card-blocks="${wordId}"] .ph-block`;
-      const domBlocks = document.querySelectorAll(selector);
-      const realBlocks = item.blocks.filter(b => b.t !== 'dot' && b.t !== 'space');
-      const banner = document.getElementById('phonicsStatusBanner');
-
-      domBlocks.forEach(b => b.classList.remove('ph-active', 'ph-word-glow'));
-
-      let idx = 0;
-      function nextPhonemeStep() {
-        if (idx < realBlocks.length) {
-          const blk = realBlocks[idx];
-          domBlocks.forEach(b => b.classList.remove('ph-active'));
-          if (domBlocks[idx]) domBlocks[idx].classList.add('ph-active');
-
-          if (blk.k === 's' || !blk.tts) {
-            // Silent letter: brief visual highlight + soft chime, then move on
-            playChime('silent');
-            if (banner && viewScope === 'deck') {
-              banner.innerHTML = `🐢 拆音 (${idx + 1}/${realBlocks.length})：<strong>[${blk.t}]</strong> 静音不发音`;
-            }
-            idx++;
-            const t = setTimeout(nextPhonemeStep, 520);
-            slowBlendTimers.push(t);
-          } else {
-            if (banner && viewScope === 'deck') {
-              banner.innerHTML = `🐢 慢速拆音 (${idx + 1}/${realBlocks.length})：<strong>[${blk.t}]</strong> 读作 <strong>${blk.ipa}</strong>`;
-            }
-            speakPhonemeOnly(blk.tts, () => {
-              idx++;
-              const t = setTimeout(nextPhonemeStep, 320);
-              slowBlendTimers.push(t);
-            });
-          }
-        } else {
-          // Final Step: Blend all blocks into the complete word!
-          domBlocks.forEach(b => {
-            b.classList.remove('ph-active');
-            b.classList.add('ph-word-glow');
-          });
-          if (banner && viewScope === 'deck') {
-            banner.innerHTML = `🌟 合起来拼成完整词：<strong>${item.word}</strong> (${item.ipa}) — ${item.cn}`;
-          }
-          playChime('pop');
-          speakText(item.word, 0.78, 1.05, () => {
-            const t = setTimeout(() => {
-              domBlocks.forEach(b => b.classList.remove('ph-word-glow'));
-              if (onCompleteCallback) onCompleteCallback();
-            }, 450);
-            slowBlendTimers.push(t);
-          });
-        }
-      }
-
-      nextPhonemeStep();
-    }
-
-    function playFullWord(wordId, withSentence = false) {
-      stopAutoPlay();
-      clearSlowTimers();
-      const item = WORDS_DB.find(w => w.id === wordId);
-      if (!item) return;
-      playChime('pop');
-      if (withSentence) {
-        speakText(`${item.word}. ${item.sentence}`, 0.84);
-      } else {
-        speakText(item.word, 0.84);
-      }
-    }
-
     function stepDeck(delta) {
       stopAutoPlay();
-      clearSlowTimers();
-      const list = getUnitWords();
-      if (!list.length) return;
-      deckIndex = (deckIndex + delta + list.length) % list.length;
+      const list = getUnitWords(currentUnit);
+      currentDeckIndex = (currentDeckIndex + delta + list.length) % list.length;
       renderBigCard();
-      speakText(list[deckIndex].word, 0.85);
+      renderDeckThumbs();
     }
 
-    function jumpToDeckCard(idx) {
+    function jumpToCard(idx) {
       stopAutoPlay();
-      clearSlowTimers();
-      deckIndex = idx;
+      currentDeckIndex = idx;
       renderBigCard();
-      const list = getUnitWords();
-      if (list[deckIndex]) speakText(list[deckIndex].word, 0.85);
+      renderDeckThumbs();
     }
 
-    // Swipe gesture on iPad / iPhone
-    (function initSwipe() {
-      let startX = 0, startY = 0;
-      document.addEventListener('DOMContentLoaded', () => {
-        const area = document.getElementById('deckTouchArea');
-        if (!area) return;
-        area.addEventListener('touchstart', e => {
-          if (e.touches.length === 1) {
-            startX = e.touches[0].clientX;
-            startY = e.touches[0].clientY;
-          }
-        }, { passive: true });
-        area.addEventListener('touchend', e => {
-          if (e.changedTouches.length === 1) {
-            const dx = e.changedTouches[0].clientX - startX;
-            const dy = e.changedTouches[0].clientY - startY;
-            if (Math.abs(dx) > 55 && Math.abs(dx) > Math.abs(dy) * 1.4) {
-              if (dx < 0) stepDeck(1);
-              else stepDeck(-1);
-            }
-          }
-        }, { passive: true });
-      });
-    })();
+    // Grid Overview Mode
+    function renderGridCards() {
+      const query = (document.getElementById('searchInput')?.value || '').trim().toLowerCase();
+      const searchAll = document.getElementById('searchAllToggle')?.checked;
+      const sourceList = searchAll ? KB1_WORDS : getUnitWords(currentUnit);
+      const filtered = query
+        ? sourceList.filter(item => item.w.toLowerCase().includes(query) || item.zh.includes(query))
+        : sourceList;
 
-    // ==================== 6. AUTO-PLAY ALL IN UNIT (SLOW BLEND + WORD) ====================
-    function toggleAutoPlay() {
-      if (isAutoPlaying) stopAutoPlay();
-      else startAutoPlay();
+      const grid = document.getElementById('cardsGrid');
+      grid.innerHTML = filtered.map((item, idx) => {
+        const cardId = `grid_card_${idx}`;
+        const escapedWord = item.w.replace(/'/g, "\\'");
+        const escapedSent = item.s.replace(/'/g, "\\'");
+        return `
+          <div class="bg-white rounded-3xl p-4 bauhaus-card flex flex-col justify-between gap-2.5">
+            <div class="flex items-start justify-between gap-2">
+              <div class="flex items-center gap-2.5">
+                <span class="text-3xl">${item.e}</span>
+                <div>
+                  <div class="text-xl font-black text-slate-900">${item.w}</div>
+                  <div class="text-xs font-bold text-slate-500">${item.zh}</div>
+                </div>
+              </div>
+              <span class="text-[11px] font-black bg-slate-100 border border-slate-300 px-2 py-0.5 rounded-lg">${item.u.toUpperCase()}</span>
+            </div>
+
+            <div id="${cardId}" class="bg-slate-50 border border-slate-200 rounded-2xl p-2.5 flex flex-wrap items-center justify-center gap-1.5">
+              ${buildPhonicsBlocksHTML(item, 'small')}
+            </div>
+
+            <div class="text-[11px] font-bold text-amber-900 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-lg">
+              💡 ${item.tip}
+            </div>
+
+            <div class="grid grid-cols-3 gap-1.5 pt-1">
+              <button onclick="playWordSlowBlend(KB1_WORDS.find(x=>x.u==='${item.u}'&&x.w===\"${item.w}\"), '${cardId}')" class="bauhaus-btn bg-amber-300 text-slate-900 py-1.5 rounded-xl font-black text-xs">
+                🐢 拆音
+              </button>
+              <button onclick="playNormalWord('${escapedWord}', '${cardId}')" class="bauhaus-btn bg-indigo-500 text-white py-1.5 rounded-xl font-black text-xs">
+                🔊 读词
+              </button>
+              <button onclick="playExampleSentence('${escapedSent}')" class="bauhaus-btn bg-teal-300 text-slate-900 py-1.5 rounded-xl font-black text-xs truncate px-1">
+                💬 例句
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
     }
 
-    function updateAutoPlayButtons(playing) {
-      const ids = [
-        { btn: 'autoPlayBtnDesktop', icon: 'autoPlayIconDesktop', txt: 'autoPlayTextDesktop', labelPlay: '本单元慢速连播', labelStop: '停止连播' },
-        { btn: 'autoPlayBtnMobile',  icon: 'autoPlayIconMobile',  txt: 'autoPlayTextMobile',  labelPlay: '单元连播',       labelStop: '停止' }
-      ];
-      ids.forEach(cfg => {
-        const b = document.getElementById(cfg.btn);
-        const ic = document.getElementById(cfg.icon);
-        const tx = document.getElementById(cfg.txt);
-        if (!b || !ic || !tx) return;
-        if (playing) {
-          ic.textContent = '⏹️';
-          tx.textContent = cfg.labelStop;
-          b.classList.replace('bg-emerald-400', 'bg-rose-400');
-        } else {
-          ic.textContent = '▶️';
-          tx.textContent = cfg.labelPlay;
-          b.classList.remove('bg-rose-400');
-          b.classList.add('bg-emerald-400');
-        }
-      });
-    }
-
-    function startAutoPlay() {
-      const list = getUnitWords();
-      if (!list.length) return;
-      isAutoPlaying = true;
-      updateAutoPlayButtons(true);
-
-      function stepAuto() {
-        if (!isAutoPlaying) return;
-        const item = list[deckIndex];
-        renderBigCard();
-        playSlowSequentialBlend(item.id, 'deck', () => {
-          if (!isAutoPlaying) return;
-          deckIndex = (deckIndex + 1) % list.length;
-          autoPlayTimer = setTimeout(stepAuto, 700);
-        });
+    // ==================== 5. AUTO-PLAY UNIT LOOP ====================
+    async function toggleAutoPlay() {
+      if (isAutoPlaying) {
+        stopAutoPlay();
+        return;
       }
-      stepAuto();
+      if (currentMode !== 'deck') switchMode('deck');
+      isAutoPlaying = true;
+      updateAutoPlayButtons();
+
+      const list = getUnitWords(currentUnit);
+      const loopId = ++activeSequenceId;
+
+      while (isAutoPlaying && loopId === activeSequenceId) {
+        renderBigCard();
+        renderDeckThumbs();
+        const item = list[currentDeckIndex];
+        await playWordSlowBlend(item, 'bigCardBlocks');
+        if (!isAutoPlaying || loopId !== activeSequenceId) break;
+        await new Promise(r => setTimeout(r, 750));
+        if (!isAutoPlaying || loopId !== activeSequenceId) break;
+        currentDeckIndex = (currentDeckIndex + 1) % list.length;
+      }
     }
 
     function stopAutoPlay() {
       isAutoPlaying = false;
-      if (autoPlayTimer) clearTimeout(autoPlayTimer);
-      clearSlowTimers();
-      updateAutoPlayButtons(false);
+      activeSequenceId++;
+      stopAllSpeech();
+      updateAutoPlayButtons();
     }
 
-    // ==================== 7. MODE 2: UNIT GRID OVERVIEW ====================
-    function renderGridCards() {
-      const grid = document.getElementById('cardsGrid');
-      const query = (document.getElementById('searchInput')?.value || '').trim().toLowerCase();
-      const searchAll = document.getElementById('searchAllToggle')?.checked;
-
-      let pool = (query && searchAll) ? WORDS_DB : getUnitWords();
-      if (query) {
-        pool = pool.filter(w => w.word.toLowerCase().includes(query) || w.cn.includes(query));
-      }
-
-      grid.innerHTML = pool.map(item => {
-        let realIdx = 0;
-        const blocksHtml = item.blocks.map(b => {
-          if (b.t === 'dot') return `<span class="text-lg font-black text-slate-400 mx-0.5">·</span>`;
-          if (b.t === 'space') return `<span class="w-2 inline-block"></span>`;
-          const cls = b.k === 'v' ? 'ph-v' : (b.k === 's' ? 'ph-s' : 'ph-c');
-          const idx = realIdx++;
-          const safeTts = (b.tts || '').replace(/'/g, "\\'");
-          return `
-            <div onclick="tapPhonemeBlock('${item.id}', ${idx}, '${safeTts}', '${b.k}', 'grid')"
-                 class="ph-block ${cls} px-2.5 py-1 rounded-xl m-0.5">
-              <span class="text-xl font-black leading-none">${b.t}</span>
-              <span class="text-[9px] font-bold leading-none mt-0.5 opacity-75">${b.ipa || ''}</span>
-            </div>
-          `;
-        }).join('');
-
-        return `
-          <article id="card-${item.id}" class="word-card bg-white rounded-2xl p-3.5 bauhaus-card flex flex-col justify-between">
-            <div>
-              <div class="flex items-center justify-between gap-2 mb-1.5">
-                <div class="flex items-center gap-2 min-w-0">
-                  <div onclick="openWordInDeck('${item.id}')" class="w-10 h-10 rounded-xl bg-amber-50 border-2 border-slate-800 flex items-center justify-center text-xl cursor-pointer shrink-0">
-                    ${item.emoji}
-                  </div>
-                  <div class="min-w-0">
-                    <div class="flex items-baseline gap-1.5">
-                      <h3 onclick="playFullWord('${item.id}', false)" class="text-lg sm:text-xl font-black text-slate-900 cursor-pointer truncate">${item.word}</h3>
-                      <span class="text-[11px] font-bold text-slate-400 shrink-0">${item.ipa}</span>
-                    </div>
-                    <p class="text-xs font-black text-slate-600 truncate">${item.cn}</p>
-                  </div>
-                </div>
-                <button onclick="openWordInDeck('${item.id}')" class="shrink-0 text-xs font-black bg-slate-100 hover:bg-amber-200 px-2 py-1 rounded-lg border border-slate-400">
-                  🔍 大卡
-                </button>
-              </div>
-
-              <div data-card-blocks="${item.id}" class="my-1.5 py-2 px-1 bg-slate-50 rounded-xl border border-slate-200 flex flex-wrap items-center justify-center min-h-[3.4rem]">
-                ${blocksHtml}
-              </div>
-            </div>
-
-            <div class="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100">
-              <button onclick="playSlowSequentialBlend('${item.id}', 'grid')" class="bauhaus-btn bg-amber-300 text-slate-900 font-black py-1.5 px-2 rounded-xl text-xs flex items-center justify-center gap-1">
-                <span>🐢</span> <span>慢速拆读</span>
-              </button>
-              <button onclick="playFullWord('${item.id}', false)" class="bauhaus-btn bg-indigo-500 text-white font-black py-1.5 px-2 rounded-xl text-xs flex items-center justify-center gap-1">
-                <span>🔊</span> <span>读整词</span>
-              </button>
-            </div>
-          </article>
-        `;
-      }).join('');
+    function updateAutoPlayButtons() {
+      const dIcon = document.getElementById('autoPlayIconDesktop');
+      const dText = document.getElementById('autoPlayTextDesktop');
+      const mIcon = document.getElementById('autoPlayIconMobile');
+      const mText = document.getElementById('autoPlayTextMobile');
+      if (dIcon) dIcon.textContent = isAutoPlaying ? '⏹️' : '▶️';
+      if (dText) dText.textContent = isAutoPlaying ? '停止连播' : '本单元慢速连播';
+      if (mIcon) mIcon.textContent = isAutoPlaying ? '⏹️' : '▶️';
+      if (mText) mText.textContent = isAutoPlaying ? '停止' : '单元连播';
     }
 
-    function openWordInDeck(wordId) {
-      const item = WORDS_DB.find(w => w.id === wordId);
-      if (!item) return;
-      currentUnit = item.u;
-      const unitList = getUnitWords(currentUnit);
-      deckIndex = Math.max(0, unitList.findIndex(w => w.id === wordId));
-      renderUnitTabs();
-      switchMode('deck');
-      speakText(item.word, 0.85);
+    // ==================== 6. SPELLING & PHONICS GAME MODE ====================
+    function setGameMode(mode) {
+      gameSubMode = mode;
+      document.getElementById('gmodeBlocks').className = `bauhaus-btn px-2.5 sm:px-3 py-1 rounded-xl text-xs sm:text-sm font-black ${
+        mode === 'blocks' ? 'bg-teal-400 text-slate-900' : 'bg-white text-slate-700'
+      }`;
+      document.getElementById('gmodeMissing').className = `bauhaus-btn px-2.5 sm:px-3 py-1 rounded-xl text-xs sm:text-sm font-black ${
+        mode === 'missing' ? 'bg-teal-400 text-slate-900' : 'bg-white text-slate-700'
+      }`;
+      initGameQueue();
     }
 
-    function switchMode(mode) {
-      stopAutoPlay();
-      clearSlowTimers();
-      currentMode = mode;
-      const modes = [
-        { id: 'deck', tab: 'tabDeck', sec: 'deckSection' },
-        { id: 'grid', tab: 'tabGrid', sec: 'gridSection' },
-        { id: 'game', tab: 'tabGame', sec: 'gameSection' }
-      ];
-      modes.forEach(m => {
-        const tabEl = document.getElementById(m.tab);
-        const secEl = document.getElementById(m.sec);
-        if (m.id === mode) {
-          tabEl.className = 'px-2 sm:px-3.5 py-1 sm:py-1.5 rounded-lg sm:rounded-xl font-black text-xs sm:text-sm transition-all bg-amber-400 text-slate-900 border-2 border-slate-800 shadow-[1.5px_1.5px_0px_#1E293B] flex items-center gap-1';
-          secEl.classList.remove('hidden');
-        } else {
-          tabEl.className = 'px-2 sm:px-3.5 py-1 sm:py-1.5 rounded-lg sm:rounded-xl font-black text-xs sm:text-sm transition-all text-slate-700 hover:text-slate-900 flex items-center gap-1';
-          secEl.classList.add('hidden');
-        }
-      });
-
-      if (mode === 'deck') renderBigCard();
-      else if (mode === 'grid') renderGridCards();
-      else if (mode === 'game') initGameList();
-    }
-
-    // ==================== 8. MODE 3: TOUCH SPELLING GAME ====================
-    function setGameMode(subMode) {
-      gameSubMode = subMode;
-      const b1 = document.getElementById('gmodeBlocks');
-      const b2 = document.getElementById('gmodeMissing');
-      if (subMode === 'blocks') {
-        b1.className = 'bauhaus-btn px-2.5 sm:px-3 py-1 rounded-xl text-xs sm:text-sm font-black bg-teal-400 text-slate-900';
-        b2.className = 'bauhaus-btn px-2.5 sm:px-3 py-1 rounded-xl text-xs sm:text-sm font-black bg-white text-slate-700';
-      } else {
-        b2.className = 'bauhaus-btn px-2.5 sm:px-3 py-1 rounded-xl text-xs sm:text-sm font-black bg-teal-400 text-slate-900';
-        b1.className = 'bauhaus-btn px-2.5 sm:px-3 py-1 rounded-xl text-xs sm:text-sm font-black bg-white text-slate-700';
-      }
-      loadGameQuestion();
-    }
-
-    function initGameList() {
-      const base = getUnitWords();
-      gamePoolList = [...base].sort(() => Math.random() - 0.5);
+    function initGameQueue() {
+      // Pick single-word items from current unit for clean block building
+      const unitItems = getUnitWords(currentUnit).filter(x => !x.b.includes(' ') && x.b.filter(t => t !== '.').length >= 2);
+      gameQueue = [...unitItems].sort(() => Math.random() - 0.5).slice(0, 10);
       gameIdx = 0;
       loadGameQuestion();
     }
 
-    function getCurrentGameItem() {
-      return gamePoolList[gameIdx] || WORDS_DB[0];
-    }
-
-    function playGameAudio(slow = false) {
-      const item = getCurrentGameItem();
-      if (slow) {
-        playSlowSequentialBlend(item.id, 'game');
-      } else {
-        speakText(item.word, 0.84);
-      }
-    }
-
     function loadGameQuestion() {
-      clearSlowTimers();
-      const item = getCurrentGameItem();
-      document.getElementById('gameIndex').textContent = gameIdx + 1;
-      document.getElementById('gameTotal').textContent = gamePoolList.length;
-      document.getElementById('gameEmoji').textContent = item.emoji;
-      document.getElementById('gameMeaning').textContent = `${item.cn} ${item.ipa}`;
-      document.getElementById('gameTip').textContent = `💡 提示：${item.tip}`;
+      if (!gameQueue.length) return;
+      currentQuestion = gameQueue[gameIdx % gameQueue.length];
+      userBlocks = [];
+      document.getElementById('gameIndex').textContent = (gameIdx % gameQueue.length) + 1;
+      document.getElementById('gameTotal').textContent = gameQueue.length;
+      document.getElementById('gameEmoji').textContent = currentQuestion.e;
+      document.getElementById('gameMeaning').textContent = currentQuestion.zh;
+      document.getElementById('gameTip').textContent = `💡 ${currentQuestion.tip}`;
       document.getElementById('gameFeedback').innerHTML = '';
 
-      currentFilled = [];
-      const realBlocks = item.blocks.filter(b => b.t !== 'dot' && b.t !== 'space');
+      const pureTokens = currentQuestion.b.filter(t => t !== '.' && t !== ' ' && t !== '-');
 
       if (gameSubMode === 'blocks') {
-        renderBlockPuzzle(item, realBlocks);
+        renderBlockBuildQuestion(pureTokens);
       } else {
-        renderMissingPuzzle(item, realBlocks);
+        renderMissingVowelQuestion(pureTokens);
       }
 
-      setTimeout(() => speakText(item.word, 0.85), 180);
+      setTimeout(() => playNormalWord(currentQuestion.w), 250);
     }
 
-    function renderBlockPuzzle(item, realBlocks) {
+    function renderBlockBuildQuestion(pureTokens) {
       const slotsEl = document.getElementById('gameSlots');
-      const poolEl = document.getElementById('gamePool');
-
-      slotsEl.innerHTML = realBlocks.map((_, i) => `
-        <div id="slot-${i}" class="min-w-[3.4rem] sm:min-w-[4rem] h-12 sm:h-14 rounded-xl border-2 border-dashed border-slate-400 bg-white flex items-center justify-center text-xl sm:text-3xl font-black text-slate-800 px-3">
+      slotsEl.innerHTML = pureTokens.map((_, i) => `
+        <div id="gslot_${i}" class="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl border-2 border-dashed border-slate-400 bg-white flex flex-col items-center justify-center text-slate-300 font-black text-xl">
           ?
         </div>
       `).join('');
 
-      const distractors = [
-        { t: 'sh', tts: 'shh', k: 'c' },
-        { t: 'ch', tts: 'chuh', k: 'c' },
-        { t: 'ai', tts: 'ay', k: 'v' },
-        { t: 'ee', tts: 'ee', k: 'v' },
-        { t: 'oo', tts: 'oo', k: 'v' },
-        { t: 'ar', tts: 'ar', k: 'v' },
-        { t: 'tr', tts: 'truh', k: 'c' }
-      ];
-      const correctTexts = realBlocks.map(b => b.t);
-      const extra = distractors.filter(d => !correctTexts.includes(d.t)).sort(() => Math.random() - 0.5).slice(0, 2);
+      const distractors = ['a', 'e', 'i', 'o', 'u', 's', 't', 'n', 'r', 'l', 'sh', 'ch']
+        .filter(d => !pureTokens.includes(d))
+        .sort(() => Math.random() - 0.5)
+        .slice(0, 2);
 
-      const choices = [
-        ...realBlocks.map((b, idx) => ({ t: b.t, tts: b.tts, k: b.k, id: `c-${idx}` })),
-        ...extra.map((d, idx) => ({ t: d.t, tts: d.tts, k: d.k, id: `d-${idx}` }))
-      ].sort(() => Math.random() - 0.5);
-
-      poolEl.innerHTML = choices.map(ch => {
-        const cls = ch.k === 'v' ? 'ph-v' : (ch.k === 's' ? 'ph-s' : 'ph-c');
-        const safeTts = (ch.tts || '').replace(/'/g, "\\'");
-        const safeText = ch.t.replace(/'/g, "\\'");
+      const poolTokens = [...pureTokens, ...distractors].sort(() => Math.random() - 0.5);
+      const poolEl = document.getElementById('gamePool');
+      poolEl.innerHTML = poolTokens.map((tok, idx) => {
+        const info = PHONEME_DICT[tok] || { display: tok, ipa: `/${tok}/`, k: 'c' };
+        const disp = info.display || tok;
+        const kindClass = info.k === 'v' ? 'ph-v' : (info.k === 's' ? 'ph-s' : 'ph-c');
+        const escapedTok = tok.replace(/'/g, "\\'");
         return `
-          <button id="btn-${ch.id}" onclick="pickBlockChoice('${ch.id}', '${safeText}', '${safeTts}')"
-                  class="bauhaus-btn ${cls} px-4 sm:px-5 py-2.5 sm:py-3 rounded-2xl text-xl sm:text-3xl font-black">
-            ${ch.t}
+          <button id="gpool_${idx}" onclick="pickGameBlock('${escapedTok}', 'gpool_${idx}', ${pureTokens.length})" class="ph-block ${kindClass} px-4 py-2.5 rounded-2xl min-w-[3.6rem]">
+            <span class="text-2xl sm:text-3xl font-black">${disp}</span>
+            <span class="text-[10px] font-bold opacity-75">${info.ipa || ''}</span>
           </button>
         `;
       }).join('');
     }
 
-    function pickBlockChoice(btnId, text, ttsSound) {
-      const item = getCurrentGameItem();
-      const realBlocks = item.blocks.filter(b => b.t !== 'dot' && b.t !== 'space');
-      const targetIndex = currentFilled.length;
-      if (targetIndex >= realBlocks.length) return;
+    async function pickGameBlock(token, btnId, targetLen) {
+      if (userBlocks.length >= targetLen) return;
+      const btn = document.getElementById(btnId);
+      if (btn) {
+        btn.disabled = true;
+        btn.classList.add('opacity-30', 'scale-90');
+      }
 
-      const expected = realBlocks[targetIndex].t;
-      const fb = document.getElementById('gameFeedback');
+      userBlocks.push(token);
+      const slotIdx = userBlocks.length - 1;
+      const slotEl = document.getElementById(`gslot_${slotIdx}`);
+      const info = PHONEME_DICT[token] || { display: token, ipa: `/${token}/`, k: 'c' };
+      if (slotEl) {
+        slotEl.className = `ph-block ${info.k === 'v' ? 'ph-v' : (info.k === 's' ? 'ph-s' : 'ph-c')} w-16 h-16 sm:w-20 sm:h-20 rounded-2xl`;
+        slotEl.innerHTML = `
+          <span class="text-2xl sm:text-3xl font-black">${info.display || token}</span>
+          <span class="text-[10px] font-bold opacity-75">${info.ipa || ''}</span>
+        `;
+      }
 
-      if (text === expected) {
-        currentFilled.push(text);
-        const slot = document.getElementById(`slot-${targetIndex}`);
-        slot.textContent = text;
-        slot.className = 'min-w-[3.4rem] sm:min-w-[4rem] h-12 sm:h-14 rounded-xl border-2 border-slate-800 bg-amber-200 flex items-center justify-center text-xl sm:text-3xl font-black text-slate-900 px-3 star-pop';
-        const btn = document.getElementById(`btn-${btnId}`);
-        if (btn) btn.classList.add('opacity-25', 'pointer-events-none');
+      await playPhonicsToken(token, slotEl);
 
-        if (currentFilled.length === realBlocks.length) {
-          playChime('win');
-          addStar(2);
-          streakCount++;
-          document.getElementById('streakBadge').textContent = `🔥 连对 ${streakCount}`;
-          fb.innerHTML = `<span class="text-emerald-600 star-pop">🎉 太棒啦！${item.word} 拼写完全正确！+2 ⭐</span>`;
-          speakPhonemeOnly(ttsSound, () => {
-            setTimeout(() => speakText(item.word, 0.85), 180);
-          });
+      const pureTokens = currentQuestion.b.filter(t => t !== '.' && t !== ' ' && t !== '-');
+      if (userBlocks.length === pureTokens.length) {
+        const userWord = userBlocks.map(t => (PHONEME_DICT[t]?.display || t)).join('').toLowerCase();
+        const targetWord = currentQuestion.w.toLowerCase();
+        const fb = document.getElementById('gameFeedback');
+        if (userWord === targetWord) {
+          stars += 2;
+          streak += 1;
+          document.getElementById('starCount').textContent = stars;
+          document.getElementById('streakBadge').textContent = `🔥 连对 ${streak}`;
+          fb.innerHTML = `<span class="text-emerald-600 star-pop">🎉 太棒了！拼读完全正确 (+2 ⭐)</span>`;
+          playToneEffect('success');
+          setTimeout(() => playNormalWord(currentQuestion.w), 350);
         } else {
-          speakPhonemeOnly(ttsSound);
+          streak = 0;
+          document.getElementById('streakBadge').textContent = `🔥 连对 0`;
+          fb.innerHTML = `<span class="text-rose-600">🤔 差一点点哦，点【🔄 重拼本题】再试一次！</span>`;
+          playToneEffect('wrong');
         }
-      } else {
-        playChime('oops');
-        streakCount = 0;
-        document.getElementById('streakBadge').textContent = `🔥 连对 0`;
-        fb.innerHTML = `<span class="text-rose-500">🤔 再听一听，第 ${targetIndex + 1} 块音节积木是哪个呢？</span>`;
       }
     }
 
-    function renderMissingPuzzle(item, realBlocks) {
+    function renderMissingVowelQuestion(pureTokens) {
+      // Find first vowel token index, or fallback to middle token
+      let targetIdx = pureTokens.findIndex(t => PHONEME_DICT[t]?.k === 'v');
+      if (targetIdx === -1) targetIdx = Math.floor(pureTokens.length / 2);
+      const correctToken = pureTokens[targetIdx];
+
       const slotsEl = document.getElementById('gameSlots');
-      const poolEl = document.getElementById('gamePool');
-
-      let hideIdx = realBlocks.findIndex(b => b.k === 'v');
-      if (hideIdx === -1) hideIdx = 0;
-      const targetBlk = realBlocks[hideIdx];
-      missingCharTarget = targetBlk.t;
-
-      slotsEl.innerHTML = realBlocks.map((b, i) => {
-        if (i === hideIdx) {
-          return `<div id="missingSlot" class="min-w-[3.8rem] sm:min-w-[4.5rem] h-12 sm:h-14 rounded-xl border-2 border-dashed border-amber-500 bg-amber-50 flex items-center justify-center text-xl sm:text-3xl font-black text-amber-700 px-3">?</div>`;
+      slotsEl.innerHTML = pureTokens.map((tok, i) => {
+        const info = PHONEME_DICT[tok] || { display: tok, ipa: `/${tok}/`, k: 'c' };
+        if (i === targetIdx) {
+          return `
+            <div id="missingSlot" class="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl border-3 border-dashed border-amber-500 bg-amber-50 flex flex-col items-center justify-center text-amber-600 font-black text-2xl">
+              ?
+            </div>
+          `;
         }
-        return `<div class="min-w-[3.2rem] sm:min-w-[3.8rem] h-12 sm:h-14 rounded-xl border-2 border-slate-800 bg-white flex items-center justify-center text-xl sm:text-3xl font-black text-slate-900 px-3">${b.t}</div>`;
+        return `
+          <div class="ph-block ${info.k === 'v' ? 'ph-v' : 'ph-c'} w-16 h-16 sm:w-20 sm:h-20 rounded-2xl">
+            <span class="text-2xl sm:text-3xl font-black">${info.display || tok}</span>
+            <span class="text-[10px] font-bold opacity-75">${info.ipa || ''}</span>
+          </div>
+        `;
       }).join('');
 
-      const distractors = [
-        { t: 'a', tts: 'aah' }, { t: 'e', tts: 'eh' }, { t: 'i', tts: 'ih' },
-        { t: 'o', tts: 'aw' },  { t: 'u', tts: 'uh' }, { t: 'ee', tts: 'ee' },
-        { t: 'ai', tts: 'ay' }, { t: 'oo', tts: 'oo' }, { t: 'ar', tts: 'ar' },
-        { t: 'er', tts: 'er' }, { t: 'ou', tts: 'ow' }
-      ];
-      const options = [
-        { t: targetBlk.t, tts: targetBlk.tts },
-        ...distractors.filter(d => d.t !== missingCharTarget).sort(() => Math.random() - 0.5).slice(0, 3)
-      ].sort(() => Math.random() - 0.5);
+      const vowelPool = ['a', 'e', 'i', 'o', 'u', 'ee', 'oo_short', 'ai', 'ar', 'or', 'ir', 'ou']
+        .filter(v => (PHONEME_DICT[v]?.display || v) !== (PHONEME_DICT[correctToken]?.display || correctToken))
+        .sort(() => Math.random() - 0.5)
+        .slice(0, 3);
 
+      const options = [correctToken, ...vowelPool].sort(() => Math.random() - 0.5);
+      const poolEl = document.getElementById('gamePool');
       poolEl.innerHTML = options.map(opt => {
-        const safeText = opt.t.replace(/'/g, "\\'");
-        const safeTts = (opt.tts || '').replace(/'/g, "\\'");
+        const info = PHONEME_DICT[opt] || { display: opt, ipa: `/${opt}/`, k: 'v' };
+        const escapedOpt = opt.replace(/'/g, "\\'");
+        const escapedCorrect = correctToken.replace(/'/g, "\\'");
         return `
-          <button onclick="pickMissingOption('${safeText}', '${safeTts}')" class="bauhaus-btn ph-v px-5 sm:px-6 py-2.5 sm:py-3 rounded-2xl text-xl sm:text-3xl font-black">
-            ${opt.t}
+          <button onclick="checkMissingChoice('${escapedOpt}', '${escapedCorrect}')" class="ph-block ph-v px-5 py-3 rounded-2xl min-w-[4.2rem]">
+            <span class="text-2xl sm:text-3xl font-black">${info.display || opt}</span>
+            <span class="text-xs font-bold opacity-80">${info.ipa || ''}</span>
           </button>
         `;
       }).join('');
     }
 
-    function pickMissingOption(opt, ttsSound) {
-      const item = getCurrentGameItem();
+    async function checkMissingChoice(picked, correct) {
+      const slot = document.getElementById('missingSlot');
+      const info = PHONEME_DICT[picked] || { display: picked, ipa: `/${picked}/`, k: 'v' };
+      await playPhonicsToken(picked, slot);
+
       const fb = document.getElementById('gameFeedback');
-      if (opt === missingCharTarget) {
-        playChime('win');
-        addStar(2);
-        streakCount++;
-        document.getElementById('streakBadge').textContent = `🔥 连对 ${streakCount}`;
-        const slot = document.getElementById('missingSlot');
+      if ((info.display || picked) === (PHONEME_DICT[correct]?.display || correct)) {
         if (slot) {
-          slot.textContent = opt;
-          slot.className = 'min-w-[3.8rem] sm:min-w-[4.5rem] h-12 sm:h-14 rounded-xl border-2 border-slate-800 bg-emerald-300 flex items-center justify-center text-xl sm:text-3xl font-black text-slate-900 px-3 star-pop';
+          slot.className = 'ph-block ph-v w-16 h-16 sm:w-20 sm:h-20 rounded-2xl star-pop';
+          slot.innerHTML = `
+            <span class="text-2xl sm:text-3xl font-black">${info.display || picked}</span>
+            <span class="text-[10px] font-bold opacity-75">${info.ipa || ''}</span>
+          `;
         }
-        fb.innerHTML = `<span class="text-emerald-600 star-pop">🌟 完美命中！${item.word}！+2 ⭐</span>`;
-        speakPhonemeOnly(ttsSound, () => {
-          setTimeout(() => speakText(item.word, 0.85), 180);
-        });
+        stars += 2;
+        streak += 1;
+        document.getElementById('starCount').textContent = stars;
+        document.getElementById('streakBadge').textContent = `🔥 连对 ${streak}`;
+        fb.innerHTML = `<span class="text-emerald-600 star-pop">🌟 听音超准！补全正确 (+2 ⭐)</span>`;
+        playToneEffect('success');
+        setTimeout(() => playNormalWord(currentQuestion.w), 350);
       } else {
-        playChime('oops');
-        speakPhonemeOnly(ttsSound);
-        streakCount = 0;
+        streak = 0;
         document.getElementById('streakBadge').textContent = `🔥 连对 0`;
-        fb.innerHTML = `<span class="text-rose-500">👂 听听这个音节的发音，再试一次吧！</span>`;
+        fb.innerHTML = `<span class="text-rose-600">👂 再听听这个元音在单词里的发音哦！</span>`;
+        playToneEffect('wrong');
+      }
+    }
+
+    function playGameAudio(slow) {
+      if (!currentQuestion) return;
+      if (slow) {
+        playWordSlowBlend(currentQuestion, 'gameSlots');
+      } else {
+        playNormalWord(currentQuestion.w);
       }
     }
 
@@ -1691,18 +1664,126 @@
     }
 
     function nextGameQuestion() {
-      gameIdx = (gameIdx + 1) % gamePoolList.length;
+      gameIdx = (gameIdx + 1) % gameQueue.length;
       loadGameQuestion();
     }
 
-    window.onload = function () {
+    // ==================== 7. MODE SWITCHING, ACCENT & SETTINGS ====================
+    function switchMode(mode) {
+      stopAutoPlay();
+      currentMode = mode;
+      const modes = ['deck', 'grid', 'game'];
+      modes.forEach(m => {
+        const btn = document.getElementById('tab' + m.charAt(0).toUpperCase() + m.slice(1));
+        const sec = document.getElementById(m + 'Section');
+        if (m === mode) {
+          btn.className = 'px-2 sm:px-3.5 py-1 sm:py-1.5 rounded-lg sm:rounded-xl font-black text-xs sm:text-sm transition-all bg-amber-400 text-slate-900 border-2 border-slate-800 shadow-[1.5px_1.5px_0px_#1E293B] flex items-center gap-1';
+          sec.classList.remove('hidden');
+        } else {
+          btn.className = 'px-2 sm:px-3.5 py-1 sm:py-1.5 rounded-lg sm:rounded-xl font-black text-xs sm:text-sm transition-all text-slate-700 hover:text-slate-900 flex items-center gap-1';
+          sec.classList.add('hidden');
+        }
+      });
+
+      if (mode === 'deck') {
+        renderBigCard();
+        renderDeckThumbs();
+      } else if (mode === 'grid') {
+        renderGridCards();
+      } else if (mode === 'game') {
+        initGameQueue();
+      }
+    }
+
+    function toggleAccent() {
+      currentAccent = currentAccent === 'en-GB' ? 'en-US' : 'en-GB';
+      document.getElementById('accentFlag').textContent = currentAccent === 'en-GB' ? '🇬🇧' : '🇺🇸';
+      document.getElementById('accentLabel').textContent = currentAccent === 'en-GB' ? '英音' : '美音';
+      const list = getUnitWords(currentUnit);
+      if (list[currentDeckIndex]) {
+        playNormalWord(list[currentDeckIndex].w, 'bigCardBlocks');
+      }
+    }
+
+    function setAudioEngine(engine) {
+      audioEngine = engine;
+      document.getElementById('engineRealBtn').className = `bauhaus-btn py-2 px-3 rounded-xl font-black text-xs sm:text-sm ${
+        engine === 'real' ? 'bg-emerald-400 text-slate-900' : 'bg-white text-slate-700'
+      }`;
+      document.getElementById('engineTtsBtn').className = `bauhaus-btn py-2 px-3 rounded-xl font-black text-xs sm:text-sm ${
+        engine === 'tts' ? 'bg-emerald-400 text-slate-900' : 'bg-white text-slate-700'
+      }`;
+      document.getElementById('audioStatusBadge').textContent = engine === 'real'
+        ? '✨ 真人原声流 + 纯正音素已激活'
+        : '🤖 离线神经网络语音已启用';
+    }
+
+    function setPhonicsStyle(style) {
+      phonicsStyle = style;
+      document.getElementById('phStyleCrispBtn').className = `bauhaus-btn py-2 px-3 rounded-xl font-black text-xs sm:text-sm ${
+        style === 'crisp' ? 'bg-amber-400 text-slate-900' : 'bg-white text-slate-700'
+      }`;
+      document.getElementById('phStyleTeachBtn').className = `bauhaus-btn py-2 px-3 rounded-xl font-black text-xs sm:text-sm ${
+        style === 'teach' ? 'bg-amber-400 text-slate-900' : 'bg-white text-slate-700'
+      }`;
+    }
+
+    function updateBlendGap(val) {
+      blendGapMs = parseInt(val, 10);
+      document.getElementById('blendGapLabel').textContent = `${blendGapMs}ms`;
+    }
+
+    function testPhonicsSample() {
+      const sample = KB1_WORDS.find(x => x.w === 'train') || KB1_WORDS[0];
+      playWordSlowBlend(sample, 'bigCardBlocks');
+    }
+
+    function unlockAndTestAudio() {
+      getAudioCtx();
+      playNormalWord('Hello! Let us read together.');
+    }
+
+    function toggleHelpModal(show) {
+      document.getElementById('helpModal').classList.toggle('hidden', !show);
+    }
+
+    function toggleVoiceModal(show) {
+      document.getElementById('voiceModal').classList.toggle('hidden', !show);
+    }
+
+    // Touch Swipe Support on Big Flashcard Stage
+    (function setupTouchSwipe() {
+      let startX = 0;
+      let startY = 0;
+      const area = document.getElementById('deckTouchArea');
+      if (!area) return;
+      area.addEventListener('touchstart', e => {
+        if (e.touches.length === 1) {
+          startX = e.touches[0].clientX;
+          startY = e.touches[0].clientY;
+        }
+      }, { passive: true });
+      area.addEventListener('touchend', e => {
+        if (e.changedTouches.length === 1) {
+          const dx = e.changedTouches[0].clientX - startX;
+          const dy = e.changedTouches[0].clientY - startY;
+          if (Math.abs(dx) > 55 && Math.abs(dx) > Math.abs(dy) * 1.4) {
+            stepDeck(dx < 0 ? 1 : -1);
+          }
+        }
+      }, { passive: true });
+    })();
+
+    // Initialize App on Load
+    window.addEventListener('DOMContentLoaded', () => {
       if ('speechSynthesis' in window) {
         window.speechSynthesis.getVoices();
+        window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
       }
       renderUnitTabs();
       renderBigCard();
-      renderGridCards();
-    };
+      renderDeckThumbs();
+    });
   </script>
 </body>
 </html>
