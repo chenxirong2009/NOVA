@@ -113,42 +113,29 @@
 </head>
 <body class="flex flex-col text-slate-800">
 
-  <!-- ==================== TOP APP BAR (ADAPTIVE FOR IPHONE & IPAD) ==================== -->
-  <header class="shrink-0 bg-[#FFFDF7] border-b-3 border-slate-800 px-2.5 sm:px-5 py-2 flex items-center justify-between gap-1.5 z-30">
-    <!-- Left: Brand & Audio Unlock -->
+  <!-- ==================== TOP APP BAR (CLEAN & FOCUSED FOR IPHONE & IPAD) ==================== -->
+  <header class="shrink-0 bg-[#FFFDF7] border-b-3 border-slate-800 px-3 sm:px-5 py-2 flex items-center justify-between gap-2 z-30">
+    <!-- Left: Brand Title -->
     <div class="flex items-center gap-2 min-w-0">
-      <div onclick="unlockAndTestAudio()" class="shrink-0 w-9 h-9 sm:w-11 sm:h-11 rounded-2xl bg-amber-400 border-2 border-slate-800 flex items-center justify-center text-xl sm:text-2xl shadow-[2px_2px_0px_#1E293B] cursor-pointer active:scale-95">
+      <div class="shrink-0 w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-amber-400 border-2 border-slate-800 flex items-center justify-center text-xl sm:text-2xl shadow-[2px_2px_0px_#1E293B]">
         🦁
       </div>
-      <div class="min-w-0">
-        <div class="flex items-center gap-1.5">
-          <h1 class="text-sm sm:text-lg lg:text-xl font-black tracking-tight text-slate-900 truncate">KB1 全册自然拼读</h1>
-          <span id="unitCountBadge" class="hidden lg:inline-block text-xs bg-indigo-600 text-white px-2.5 py-0.5 rounded-full font-bold">U1-U12 全收录</span>
-        </div>
-        <div class="flex items-center gap-1.5 text-[11px] sm:text-xs font-bold">
-          <span id="audioStatusBadge" onclick="unlockAndTestAudio()" class="inline-flex items-center gap-1 text-emerald-800 bg-emerald-100 px-1.5 py-0.5 rounded border border-emerald-400 cursor-pointer">
-            ✨ 真人原声流 + 纯正音素已激活
-          </span>
-          <button onclick="toggleVoiceModal(true)" class="inline-flex items-center gap-0.5 text-amber-900 bg-amber-100 px-1.5 py-0.5 rounded border border-amber-400 cursor-pointer">
-            🔧 语音诊断与音质校准
-          </button>
-          <button onclick="toggleHelpModal(true)" class="inline-flex items-center gap-0.5 text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-300 cursor-pointer">
-            📱 手机/iPad用法
-          </button>
-        </div>
+      <div class="flex items-center gap-2 min-w-0">
+        <h1 class="text-sm sm:text-lg lg:text-xl font-black tracking-tight text-slate-900 truncate">KB1 全册自然拼读</h1>
+        <span class="hidden lg:inline-block text-xs bg-indigo-600 text-white px-2.5 py-0.5 rounded-full font-bold">Unit 1 - Unit 12</span>
       </div>
     </div>
 
     <!-- Center: 3 Modes Switcher -->
     <div class="flex bg-slate-200 p-0.5 sm:p-1 rounded-xl sm:rounded-2xl border-2 border-slate-800 gap-0.5 sm:gap-1 shrink-0">
-      <button id="tabDeck" onclick="switchMode('deck')" class="px-2 sm:px-3.5 py-1 sm:py-1.5 rounded-lg sm:rounded-xl font-black text-xs sm:text-sm transition-all bg-amber-400 text-slate-900 border-2 border-slate-800 shadow-[1.5px_1.5px_0px_#1E293B] flex items-center gap-1">
+      <button id="tabDeck" onclick="switchMode('deck')" class="px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-lg sm:rounded-xl font-black text-xs sm:text-sm transition-all bg-amber-400 text-slate-900 border-2 border-slate-800 shadow-[1.5px_1.5px_0px_#1E293B] flex items-center gap-1">
         <span>📖</span> <span class="hidden xs:inline sm:inline">巨型大卡</span>
       </button>
-      <button id="tabGrid" onclick="switchMode('grid')" class="px-2 sm:px-3.5 py-1 sm:py-1.5 rounded-lg sm:rounded-xl font-black text-xs sm:text-sm transition-all text-slate-700 hover:text-slate-900 flex items-center gap-1">
+      <button id="tabGrid" onclick="switchMode('grid')" class="px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-lg sm:rounded-xl font-black text-xs sm:text-sm transition-all text-slate-700 hover:text-slate-900 flex items-center gap-1">
         <span>🗂️</span> <span class="hidden xs:inline sm:inline">词表总览</span>
       </button>
-      <button id="tabGame" onclick="switchMode('game')" class="px-2 sm:px-3.5 py-1 sm:py-1.5 rounded-lg sm:rounded-xl font-black text-xs sm:text-sm transition-all text-slate-700 hover:text-slate-900 flex items-center gap-1">
-        <span>🧩</span> <span class="hidden xs:inline sm:inline">拼读闯关</span>
+      <button id="tabGame" onclick="switchMode('game')" class="px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-lg sm:rounded-xl font-black text-xs sm:text-sm transition-all text-slate-700 hover:text-slate-900 flex items-center gap-1">
+        <span>🧩</span> <span class="hidden xs:inline sm:inline">听音拼积木</span>
       </button>
     </div>
 
@@ -158,7 +145,7 @@
         <span>⭐</span>
         <span id="starCount">0</span>
       </div>
-      <button id="accentBtn" onclick="toggleAccent()" class="bauhaus-btn bg-white px-2 sm:px-3 py-1 rounded-xl font-black text-xs sm:text-sm flex items-center gap-1">
+      <button id="accentBtn" onclick="toggleAccent()" class="bauhaus-btn bg-white px-2.5 sm:px-3 py-1 rounded-xl font-black text-xs sm:text-sm flex items-center gap-1">
         <span id="accentFlag">🇬🇧</span>
         <span id="accentLabel" class="hidden md:inline">英音</span>
       </button>
@@ -341,213 +328,185 @@
     </main>
   </div>
 
-  <!-- ==================== HELP MODAL FOR IPAD / IPHONE USAGE ==================== -->
-  <div id="helpModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-    <div class="bg-white rounded-3xl max-w-lg w-full p-5 sm:p-6 bauhaus-card space-y-3">
-      <div class="flex items-center justify-between border-b-2 border-slate-200 pb-2">
-        <h3 class="text-lg sm:text-xl font-black text-slate-900">📱 如何在 iPad / iPhone 上全屏使用？</h3>
-        <button onclick="toggleHelpModal(false)" class="w-8 h-8 rounded-full bg-slate-200 font-black text-slate-700">✕</button>
-      </div>
-      <div class="text-xs sm:text-sm space-y-2.5 text-slate-700 font-medium leading-relaxed">
-        <p class="bg-amber-50 border border-amber-300 p-2.5 rounded-xl text-amber-900 font-bold">
-          💡 为什么微信里直接点文件打不开？<br>
-          苹果 iOS 与微信出于安全限制，不允许直接运行本地 `.html` 网页文件。请任选以下两种最简单的方法：
-        </p>
-        <div>
-          <strong class="text-indigo-700">方法 A（最推荐 · 变成专属网址并添加到桌面）：</strong>
-          <ol class="list-decimal list-inside space-y-1 mt-1">
-            <li>在电脑浏览器打开免费托管网站 <strong>tiiny.host</strong>，把这个 HTML 文件拖进去上传，获得一个网址或二维码。</li>
-            <li>用 iPad 或 iPhone 的 <strong>Safari 浏览器</strong> 打开该网址。</li>
-            <li>点击 Safari 顶部或底部的 <strong>“分享按钮 📤” → “添加到主屏幕”</strong>，桌面就会出现独立全屏 App 图标！</li>
-          </ol>
-        </div>
-        <div>
-          <strong class="text-teal-700">方法 B（免网络单机使用）：</strong>
-          <p class="mt-0.5">在 iPad/iPhone 的 App Store 免费下载 <strong>Documents (by Readdle)</strong> 或 <strong>HTML Viewer Q</strong>，在微信里收到文件后点右上角 <code>...</code> → “用其他应用打开” → 选 Documents 即可直接全屏发声点读。</p>
-        </div>
-      </div>
-      <button onclick="toggleHelpModal(false)" class="bauhaus-btn w-full bg-amber-400 text-slate-900 font-black py-2.5 rounded-xl text-sm">
-        我知道啦，开始点读！
-      </button>
-    </div>
-  </div>
-
   <script>
-    // ==================== 1. PURE PHONEME & SYLLABLE AUDIO ENGINE ====================
-    // Every single phonics tile maps to:
-    // - `tts`: carefully calibrated phonetic carrier for real human dictionary stream
-    // - `cut`: max duration in ms for crisp consonant envelope trimming (prevents "uh" drag on plosives)
-    // - `ipa`: standard Cambridge IPA symbol shown on the tile
+    // ==================== 1. FULL-DURATION CLEAR PHONEME & SYLLABLE DICTIONARY ====================
+    // Every phonics block maps to:
+    // - `tts`: Clear, natural, full-length phonetic syllable for dictionary audio
+    // - `speech`: Clear phonetic text fallback for offline SpeechSynthesis
+    // - `ipa`: Exact Cambridge IPA symbol for the letter/digraph in that specific word
     const PHONEME_DICT = {
-      // Single Consonants & Digraphs (Pure phonetic sound + crisp envelope cut ms)
-      'b':   { tts: 'buh',  cut: 240, ipa: '/b/',  k: 'c' },
-      'bb':  { tts: 'buh',  cut: 240, ipa: '/b/',  k: 'c' },
-      'c':   { tts: 'kuh',  cut: 220, ipa: '/k/',  k: 'c', synth: 'k' },
-      'c_s': { tts: 'sss',  cut: 360, ipa: '/s/',  k: 'c', display: 'c', synth: 's' },
-      'ck':  { tts: 'kuh',  cut: 220, ipa: '/k/',  k: 'c', synth: 'k' },
-      'ch':  { tts: 'chuh', cut: 280, ipa: '/tʃ/', k: 'c', synth: 'ch' },
-      'ch_k':{ tts: 'kuh',  cut: 220, ipa: '/k/',  k: 'c', display: 'ch', synth: 'k' },
-      'd':   { tts: 'duh',  cut: 240, ipa: '/d/',  k: 'c' },
-      'dd':  { tts: 'duh',  cut: 240, ipa: '/d/',  k: 'c' },
-      'f':   { tts: 'fff',  cut: 350, ipa: '/f/',  k: 'c', synth: 'f' },
-      'ff':  { tts: 'fff',  cut: 350, ipa: '/f/',  k: 'c', synth: 'f' },
-      'g':   { tts: 'guh',  cut: 250, ipa: '/ɡ/',  k: 'c' },
-      'gg':  { tts: 'guh',  cut: 250, ipa: '/ɡ/',  k: 'c' },
-      'g_j': { tts: 'juh',  cut: 280, ipa: '/dʒ/', k: 'c', display: 'g' },
-      'ge':  { tts: 'juh',  cut: 280, ipa: '/dʒ/', k: 'c' },
-      'h':   { tts: 'huh',  cut: 230, ipa: '/h/',  k: 'c', synth: 'h' },
-      'j':   { tts: 'juh',  cut: 280, ipa: '/dʒ/', k: 'c' },
-      'k':   { tts: 'kuh',  cut: 220, ipa: '/k/',  k: 'c', synth: 'k' },
-      'kn':  { tts: 'nnn',  cut: 380, ipa: '/n/',  k: 'c' },
-      'l':   { tts: 'luh',  cut: 300, ipa: '/l/',  k: 'c' },
-      'll':  { tts: 'luh',  cut: 300, ipa: '/l/',  k: 'c' },
-      'm':   { tts: 'mmm',  cut: 380, ipa: '/m/',  k: 'c' },
-      'mm':  { tts: 'mmm',  cut: 380, ipa: '/m/',  k: 'c' },
-      'n':   { tts: 'nnn',  cut: 380, ipa: '/n/',  k: 'c' },
-      'nn':  { tts: 'nnn',  cut: 380, ipa: '/n/',  k: 'c' },
-      'ng':  { tts: 'ing',  cut: 400, ipa: '/ŋ/',  k: 'c' },
-      'nk':  { tts: 'ink',  cut: 400, ipa: '/ŋk/', k: 'c' },
-      'p':   { tts: 'puh',  cut: 210, ipa: '/p/',  k: 'c', synth: 'p' },
-      'pp':  { tts: 'puh',  cut: 210, ipa: '/p/',  k: 'c', synth: 'p' },
-      'ph':  { tts: 'fff',  cut: 350, ipa: '/f/',  k: 'c', synth: 'f' },
-      'qu':  { tts: 'kwuh', cut: 300, ipa: '/kw/', k: 'c' },
-      'r':   { tts: 'ruh',  cut: 300, ipa: '/r/',  k: 'c' },
-      'rr':  { tts: 'ruh',  cut: 300, ipa: '/r/',  k: 'c' },
-      's':   { tts: 'sss',  cut: 360, ipa: '/s/',  k: 'c', synth: 's' },
-      'ss':  { tts: 'sss',  cut: 360, ipa: '/s/',  k: 'c', synth: 's' },
-      's_z': { tts: 'zzz',  cut: 360, ipa: '/z/',  k: 'c', display: 's' },
-      'se_z':{ tts: 'zzz',  cut: 360, ipa: '/z/',  k: 'c', display: 'se' },
-      'sh':  { tts: 'shh',  cut: 360, ipa: '/ʃ/',  k: 'c', synth: 'sh' },
-      't':   { tts: 'tuh',  cut: 210, ipa: '/t/',  k: 'c', synth: 't' },
-      'tt':  { tts: 'tuh',  cut: 210, ipa: '/t/',  k: 'c', synth: 't' },
-      'tch': { tts: 'chuh', cut: 280, ipa: '/tʃ/', k: 'c', synth: 'ch' },
-      'th_u':{ tts: 'thuh', cut: 300, ipa: '/θ/',  k: 'c', display: 'th', synth: 'th' },
-      'th_v':{ tts: 'the',  cut: 270, ipa: '/ð/',  k: 'c', display: 'th' },
-      'v':   { tts: 'vvv',  cut: 350, ipa: '/v/',  k: 'c' },
-      've':  { tts: 'vvv',  cut: 350, ipa: '/v/',  k: 'c' },
-      'w':   { tts: 'wuh',  cut: 260, ipa: '/w/',  k: 'c' },
-      'wh':  { tts: 'wuh',  cut: 260, ipa: '/w/',  k: 'c' },
-      'wh_h':{ tts: 'huh',  cut: 240, ipa: '/h/',  k: 'c', display: 'wh', synth: 'h' },
-      'x':   { tts: 'ks',   cut: 360, ipa: '/ks/', k: 'c' },
-      'y_c': { tts: 'yuh',  cut: 270, ipa: '/j/',  k: 'c', display: 'y' },
-      'z':   { tts: 'zzz',  cut: 360, ipa: '/z/',  k: 'c' },
+      // Consonants & Consonant Digraphs (Full, clear teaching pronunciation — NO clipping!)
+      'b':    { tts: 'buh',   speech: 'buh',   ipa: '/b/',  k: 'c' },
+      'bb':   { tts: 'buh',   speech: 'buh',   ipa: '/b/',  k: 'c' },
+      'c':    { tts: 'kuh',   speech: 'kuh',   ipa: '/k/',  k: 'c' },
+      'c_s':  { tts: 'sss',   speech: 'sss',   ipa: '/s/',  k: 'c', display: 'c' },
+      'ck':   { tts: 'kuh',   speech: 'kuh',   ipa: '/k/',  k: 'c' },
+      'ch':   { tts: 'chuh',  speech: 'chuh',  ipa: '/tʃ/', k: 'c' },
+      'ch_k': { tts: 'kuh',   speech: 'kuh',   ipa: '/k/',  k: 'c', display: 'ch' },
+      'd':    { tts: 'duh',   speech: 'duh',   ipa: '/d/',  k: 'c' },
+      'dd':   { tts: 'duh',   speech: 'duh',   ipa: '/d/',  k: 'c' },
+      'f':    { tts: 'fff',   speech: 'fff',   ipa: '/f/',  k: 'c' },
+      'ff':   { tts: 'fff',   speech: 'fff',   ipa: '/f/',  k: 'c' },
+      'v_f':  { tts: 'vvv',   speech: 'vvv',   ipa: '/v/',  k: 'c', display: 'f' },
+      'g':    { tts: 'guh',   speech: 'guh',   ipa: '/ɡ/',  k: 'c' },
+      'gg':   { tts: 'guh',   speech: 'guh',   ipa: '/ɡ/',  k: 'c' },
+      'g_j':  { tts: 'juh',   speech: 'juh',   ipa: '/dʒ/', k: 'c', display: 'g' },
+      'ge':   { tts: 'juh',   speech: 'juh',   ipa: '/dʒ/', k: 'c' },
+      'h':    { tts: 'huh',   speech: 'huh',   ipa: '/h/',  k: 'c' },
+      'j':    { tts: 'juh',   speech: 'juh',   ipa: '/dʒ/', k: 'c' },
+      'k':    { tts: 'kuh',   speech: 'kuh',   ipa: '/k/',  k: 'c' },
+      'kn':   { tts: 'nnn',   speech: 'nnn',   ipa: '/n/',  k: 'c' },
+      'l':    { tts: 'luh',   speech: 'luh',   ipa: '/l/',  k: 'c' },
+      'll':   { tts: 'ull',   speech: 'ull',   ipa: '/l/',  k: 'c' },
+      'm':    { tts: 'mmm',   speech: 'mmm',   ipa: '/m/',  k: 'c' },
+      'mm':   { tts: 'mmm',   speech: 'mmm',   ipa: '/m/',  k: 'c' },
+      'n':    { tts: 'nnn',   speech: 'nnn',   ipa: '/n/',  k: 'c' },
+      'nn':   { tts: 'nnn',   speech: 'nnn',   ipa: '/n/',  k: 'c' },
+      'ng':   { tts: 'ing',   speech: 'ing',   ipa: '/ŋ/',  k: 'c' },
+      'nk':   { tts: 'ink',   speech: 'ink',   ipa: '/ŋk/', k: 'c' },
+      'p':    { tts: 'puh',   speech: 'puh',   ipa: '/p/',  k: 'c' },
+      'pp':   { tts: 'puh',   speech: 'puh',   ipa: '/p/',  k: 'c' },
+      'ph':   { tts: 'fff',   speech: 'fff',   ipa: '/f/',  k: 'c' },
+      'qu':   { tts: 'kwuh',  speech: 'kwuh',  ipa: '/kw/', k: 'c' },
+      'r':    { tts: 'ruh',   speech: 'ruh',   ipa: '/r/',  k: 'c' },
+      'rr':   { tts: 'ruh',   speech: 'ruh',   ipa: '/r/',  k: 'c' },
+      's':    { tts: 'sss',   speech: 'sss',   ipa: '/s/',  k: 'c' },
+      'ss':   { tts: 'sss',   speech: 'sss',   ipa: '/s/',  k: 'c' },
+      's_z':  { tts: 'zzz',   speech: 'zzz',   ipa: '/z/',  k: 'c', display: 's' },
+      'sh':   { tts: 'shh',   speech: 'shh',   ipa: '/ʃ/',  k: 'c' },
+      't':    { tts: 'tuh',   speech: 'tuh',   ipa: '/t/',  k: 'c' },
+      'tt':   { tts: 'tuh',   speech: 'tuh',   ipa: '/t/',  k: 'c' },
+      't_ch': { tts: 'chuh',  speech: 'chuh',  ipa: '/tʃ/', k: 'c', display: 't' },
+      'tch':  { tts: 'chuh',  speech: 'chuh',  ipa: '/tʃ/', k: 'c' },
+      'th_u': { tts: 'thuh',  speech: 'thuh',  ipa: '/θ/',  k: 'c', display: 'th' },
+      'th_v': { tts: 'the',   speech: 'the',   ipa: '/ð/',  k: 'c', display: 'th' },
+      'v':    { tts: 'vvv',   speech: 'vvv',   ipa: '/v/',  k: 'c' },
+      'w':    { tts: 'wuh',   speech: 'wuh',   ipa: '/w/',  k: 'c' },
+      'wh':   { tts: 'wuh',   speech: 'wuh',   ipa: '/w/',  k: 'c' },
+      'wh_h': { tts: 'huh',   speech: 'huh',   ipa: '/h/',  k: 'c', display: 'wh' },
+      'x':    { tts: 'ks',    speech: 'ks',    ipa: '/ks/', k: 'c' },
+      'y_c':  { tts: 'yuh',   speech: 'yuh',   ipa: '/j/',  k: 'c', display: 'y' },
+      'z':    { tts: 'zzz',   speech: 'zzz',   ipa: '/z/',  k: 'c' },
 
-      // Consonant Blends (Crisp onset clusters)
-      'bl':  { tts: 'bluh', cut: 310, ipa: '/bl/', k: 'c' },
-      'br':  { tts: 'bruh', cut: 310, ipa: '/br/', k: 'c' },
-      'cl':  { tts: 'kluh', cut: 310, ipa: '/kl/', k: 'c' },
-      'cr':  { tts: 'kruh', cut: 310, ipa: '/kr/', k: 'c' },
-      'dr':  { tts: 'druh', cut: 310, ipa: '/dr/', k: 'c' },
-      'fl':  { tts: 'fluh', cut: 310, ipa: '/fl/', k: 'c' },
-      'fr':  { tts: 'fruh', cut: 310, ipa: '/fr/', k: 'c' },
-      'gl':  { tts: 'gluh', cut: 310, ipa: '/ɡl/', k: 'c' },
-      'gr':  { tts: 'gruh', cut: 310, ipa: '/ɡr/', k: 'c' },
-      'pl':  { tts: 'pluh', cut: 310, ipa: '/pl/', k: 'c' },
-      'pr':  { tts: 'pruh', cut: 310, ipa: '/pr/', k: 'c' },
-      'sk':  { tts: 'skuh', cut: 320, ipa: '/sk/', k: 'c' },
-      'sl':  { tts: 'sluh', cut: 320, ipa: '/sl/', k: 'c' },
-      'sm':  { tts: 'smuh', cut: 320, ipa: '/sm/', k: 'c' },
-      'sn':  { tts: 'snuh', cut: 320, ipa: '/sn/', k: 'c' },
-      'sp':  { tts: 'spuh', cut: 320, ipa: '/sp/', k: 'c' },
-      'st':  { tts: 'stuh', cut: 320, ipa: '/st/', k: 'c' },
-      'sw':  { tts: 'swuh', cut: 320, ipa: '/sw/', k: 'c' },
-      'tr':  { tts: 'truh', cut: 310, ipa: '/tr/', k: 'c' },
-      'tw':  { tts: 'twuh', cut: 310, ipa: '/tw/', k: 'c' },
-      'nd':  { tts: 'nd',   cut: 340, ipa: '/nd/', k: 'c' },
-      'nt':  { tts: 'nt',   cut: 330, ipa: '/nt/', k: 'c' },
+      // Consonant Blends (Clear onset & coda clusters)
+      'bl':   { tts: 'bluh',  speech: 'bluh',  ipa: '/bl/', k: 'c' },
+      'br':   { tts: 'bruh',  speech: 'bruh',  ipa: '/br/', k: 'c' },
+      'cl':   { tts: 'kluh',  speech: 'kluh',  ipa: '/kl/', k: 'c' },
+      'cr':   { tts: 'kruh',  speech: 'kruh',  ipa: '/kr/', k: 'c' },
+      'dr':   { tts: 'druh',  speech: 'druh',  ipa: '/dr/', k: 'c' },
+      'fl':   { tts: 'fluh',  speech: 'fluh',  ipa: '/fl/', k: 'c' },
+      'fr':   { tts: 'fruh',  speech: 'fruh',  ipa: '/fr/', k: 'c' },
+      'gl':   { tts: 'gluh',  speech: 'gluh',  ipa: '/ɡl/', k: 'c' },
+      'gr':   { tts: 'gruh',  speech: 'gruh',  ipa: '/ɡr/', k: 'c' },
+      'pl':   { tts: 'pluh',  speech: 'pluh',  ipa: '/pl/', k: 'c' },
+      'pr':   { tts: 'pruh',  speech: 'pruh',  ipa: '/pr/', k: 'c' },
+      'sk':   { tts: 'skuh',  speech: 'skuh',  ipa: '/sk/', k: 'c' },
+      'sl':   { tts: 'sluh',  speech: 'sluh',  ipa: '/sl/', k: 'c' },
+      'sm':   { tts: 'smuh',  speech: 'smuh',  ipa: '/sm/', k: 'c' },
+      'sn':   { tts: 'snuh',  speech: 'snuh',  ipa: '/sn/', k: 'c' },
+      'sp':   { tts: 'spuh',  speech: 'spuh',  ipa: '/sp/', k: 'c' },
+      'st':   { tts: 'stuh',  speech: 'stuh',  ipa: '/st/', k: 'c' },
+      'sw':   { tts: 'swuh',  speech: 'swuh',  ipa: '/sw/', k: 'c' },
+      'tr':   { tts: 'truh',  speech: 'truh',  ipa: '/tr/', k: 'c' },
+      'tw':   { tts: 'twuh',  speech: 'twuh',  ipa: '/tw/', k: 'c' },
+      'nd':   { tts: 'nd',    speech: 'und',   ipa: '/nd/', k: 'c' },
+      'nt':   { tts: 'nt',    speech: 'unt',   ipa: '/nt/', k: 'c' },
 
-      // Short Vowels, Long Vowels, Diphthongs & R-Controlled Vowels (Context-Accurate!)
-      'a':     { tts: 'at',   cut: 260, ipa: '/æ/',  k: 'v' }, // short a as in cat, bag (trimmed before t)
-      'a_ei':  { tts: 'eight',cut: 280, ipa: '/eɪ/', k: 'v', display: 'a' }, // long a as in name, cake, table
-      'a_o':   { tts: 'on',   cut: 260, ipa: '/ɒ/',  k: 'v', display: 'a' }, // a after w as in what, wash, watch
-      'a_ar':  { tts: 'ah',   cut: 420, ipa: '/ɑː/', k: 'v', display: 'a' }, // bath, father, glasses
-      'a_schwa':{ tts: 'uh',  cut: 260, ipa: '/ə/',  k: 'v', display: 'a' }, // unstressed a as in banana, sofa
-      'a_e_air':{ tts: 'air', cut: 450, ipa: '/eə/', k: 'v', display: 'a' },
-      'ai':    { tts: 'aim',  cut: 300, ipa: '/eɪ/', k: 'v' },
-      'ay':    { tts: 'day',  cut: 420, ipa: '/eɪ/', k: 'v' },
-      'ar':    { tts: 'are',  cut: 440, ipa: '/ɑː/', k: 'v' },
-      'air':   { tts: 'air',  cut: 450, ipa: '/eə/', k: 'v' },
-      'al':    { tts: 'all',  cut: 440, ipa: '/ɔː/', k: 'v' },
-      'all':   { tts: 'all',  cut: 450, ipa: '/ɔːl/',k: 'v' },
+      // Vowels, Digraphs & R-Controlled Vowels (Full, clear, unclipped vowel sounds)
+      'a':        { tts: 'at',    speech: 'aah',   ipa: '/æ/',  k: 'v' },
+      'a_ei':     { tts: 'ay',    speech: 'ay',    ipa: '/eɪ/', k: 'v', display: 'a' },
+      'a_o':      { tts: 'ox',    speech: 'aw',    ipa: '/ɒ/',  k: 'v', display: 'a' },
+      'a_or':     { tts: 'or',    speech: 'or',    ipa: '/ɔː/', k: 'v', display: 'a' },
+      'a_ar':     { tts: 'ah',    speech: 'ah',    ipa: '/ɑː/', k: 'v', display: 'a' },
+      'a_i':      { tts: 'ih',    speech: 'ih',    ipa: '/ɪ/',  k: 'v', display: 'a' },
+      'a_schwa':  { tts: 'uh',    speech: 'uh',    ipa: '/ə/',  k: 'v', display: 'a' },
+      'ai':       { tts: 'ay',    speech: 'ay',    ipa: '/eɪ/', k: 'v' },
+      'ay':       { tts: 'day',   speech: 'ay',    ipa: '/eɪ/', k: 'v' },
+      'aw':       { tts: 'saw',   speech: 'aw',    ipa: '/ɔː/', k: 'v' },
+      'ar':       { tts: 'ah',    speech: 'ar',    ipa: '/ɑː/', k: 'v' },
+      'air':      { tts: 'air',   speech: 'air',   ipa: '/eə/', k: 'v' },
+      'all':      { tts: 'all',   speech: 'all',   ipa: '/ɔːl/',k: 'v' },
 
-      'e':     { tts: 'eh',   cut: 320, ipa: '/e/',  k: 'v' }, // short e as in pen, red, ten
-      'e_long':{ tts: 'eat',  cut: 290, ipa: '/iː/', k: 'v', display: 'e' }, // he, she, me, we, be
-      'e_i':   { tts: 'in',   cut: 250, ipa: '/ɪ/',  k: 'v', display: 'e' }, // eraser, jacket, forest, behind
-      'e_schwa':{ tts: 'uh',  cut: 260, ipa: '/ə/',  k: 'v', display: 'e' },
-      'ee':    { tts: 'eel',  cut: 310, ipa: '/iː/', k: 'v' },
-      'ea':    { tts: 'eat',  cut: 290, ipa: '/iː/', k: 'v' },
-      'ea_e':  { tts: 'eh',   cut: 320, ipa: '/e/',  k: 'v', display: 'ea' }, // head, bread
-      'ear':   { tts: 'ear',  cut: 450, ipa: '/ɪə/', k: 'v' }, // ear, hear
-      'ear_air':{ tts: 'air', cut: 450, ipa: '/eə/', k: 'v', display: 'ear' }, // pear, bear, wear
-      'er':    { tts: 'uh',   cut: 340, ipa: '/ə/',  k: 'v' },
-      'er_long':{ tts: 'err', cut: 440, ipa: '/ɜː/', k: 'v', display: 'er' }, // her
-      'ere':   { tts: 'ear',  cut: 450, ipa: '/ɪə/', k: 'v' }, // here
-      'ere_air':{ tts: 'air', cut: 450, ipa: '/eə/', k: 'v', display: 'ere' }, // where, there
-      'ey':    { tts: 'day',  cut: 420, ipa: '/eɪ/', k: 'v' }, // grey
-      'ey_i':  { tts: 'eat',  cut: 290, ipa: '/i/',  k: 'v', display: 'ey' }, // monkey
-      'ei':    { tts: 'eight',cut: 280, ipa: '/eɪ/', k: 'v' }, // eight
-      'eau':   { tts: 'you',  cut: 420, ipa: '/juː/',k: 'v' }, // beautiful
+      'e':        { tts: 'eh',    speech: 'eh',    ipa: '/e/',  k: 'v' },
+      'e_long':   { tts: 'bee',   speech: 'ee',    ipa: '/iː/', k: 'v', display: 'e' },
+      'e_i':      { tts: 'ih',    speech: 'ih',    ipa: '/ɪ/',  k: 'v', display: 'e' },
+      'e_schwa':  { tts: 'uh',    speech: 'uh',    ipa: '/ə/',  k: 'v', display: 'e' },
+      'ee':       { tts: 'see',   speech: 'ee',    ipa: '/iː/', k: 'v' },
+      'ea':       { tts: 'tea',   speech: 'ee',    ipa: '/iː/', k: 'v' },
+      'ea_e':     { tts: 'eh',    speech: 'eh',    ipa: '/e/',  k: 'v', display: 'ea' },
+      'ear':      { tts: 'ear',   speech: 'ear',   ipa: '/ɪə/', k: 'v' },
+      'ear_air':  { tts: 'air',   speech: 'air',   ipa: '/eə/', k: 'v', display: 'ear' },
+      'er':       { tts: 'uh',    speech: 'uh',    ipa: '/ə/',  k: 'v' },
+      'er_long':  { tts: 'her',   speech: 'ur',    ipa: '/ɜː/', k: 'v', display: 'er' },
+      'ere':      { tts: 'ear',   speech: 'ear',   ipa: '/ɪə/', k: 'v' },
+      'ere_air':  { tts: 'air',   speech: 'air',   ipa: '/eə/', k: 'v', display: 'ere' },
+      'ey':       { tts: 'day',   speech: 'ay',    ipa: '/eɪ/', k: 'v' },
+      'ey_i':     { tts: 'key',   speech: 'ee',    ipa: '/i/',  k: 'v', display: 'ey' },
+      'ey_ai':    { tts: 'eye',   speech: 'eye',   ipa: '/aɪ/', k: 'v', display: 'ey' },
+      'ei':       { tts: 'day',   speech: 'ay',    ipa: '/eɪ/', k: 'v' },
+      'eau':      { tts: 'you',   speech: 'you',   ipa: '/juː/',k: 'v' },
 
-      'i':     { tts: 'in',   cut: 250, ipa: '/ɪ/',  k: 'v' }, // sit, big, six, fish
-      'i_ai':  { tts: 'eye',  cut: 440, ipa: '/aɪ/', k: 'v', display: 'i' }, // I, five, nine, bike, white, tiger
-      'i_schwa':{ tts: 'uh',  cut: 260, ipa: '/ə/',  k: 'v', display: 'i' }, // pencil, family, animal
-      'ie':    { tts: 'eh',   cut: 320, ipa: '/e/',  k: 'v' }, // friend
-      'ir':    { tts: 'err',  cut: 440, ipa: '/ɜː/', k: 'v' }, // bird, girl, shirt, skirt, dirty
+      'i':        { tts: 'ih',    speech: 'ih',    ipa: '/ɪ/',  k: 'v' },
+      'i_ai':     { tts: 'eye',   speech: 'eye',   ipa: '/aɪ/', k: 'v', display: 'i' },
+      'i_long':   { tts: 'bee',   speech: 'ee',    ipa: '/i/',  k: 'v', display: 'i' },
+      'i_schwa':  { tts: 'ih',    speech: 'ih',    ipa: '/ɪ/',  k: 'v', display: 'i' },
+      'ir':       { tts: 'her',   speech: 'ur',    ipa: '/ɜː/', k: 'v' },
 
-      'o':     { tts: 'on',   cut: 260, ipa: '/ɒ/',  k: 'v' }, // dog, box, on, long, clock
-      'o_ou':  { tts: 'oh',   cut: 420, ipa: '/əʊ/', k: 'v', display: 'o' }, // no, go, open, nose, hippo, piano
-      'o_u':   { tts: 'up',   cut: 250, ipa: '/ʌ/',  k: 'v', display: 'o' }, // mother, brother, monkey, colour, some
-      'o_wu':  { tts: 'won',  cut: 350, ipa: '/wʌ/', k: 'v', display: 'o' }, // one
-      'o_long_u':{ tts: 'ooze',cut: 310, ipa: '/uː/', k: 'v', display: 'o' }, // two, who, do, to, move
-      'o_short_u':{ tts: 'book',cut: 290, ipa: '/ʊ/', k: 'v', display: 'o' }, // woman
-      'o_schwa':{ tts: 'uh',  cut: 260, ipa: '/ə/',  k: 'v', display: 'o' }, // lemon, computer, crocodile
-      'oa':    { tts: 'oak',  cut: 300, ipa: '/əʊ/', k: 'v' }, // boat
-      'oe':    { tts: 'oh',   cut: 420, ipa: '/əʊ/', k: 'v' }, // toe
-      'oe_u':  { tts: 'ooze', cut: 310, ipa: '/uː/', k: 'v', display: 'oe' }, // shoes
-      'oi':    { tts: 'oil',  cut: 340, ipa: '/ɔɪ/', k: 'v' }, // point
-      'oy':    { tts: 'boy',  cut: 430, ipa: '/ɔɪ/', k: 'v' }, // boy, toy
-      'oo_short':{ tts: 'good',cut: 290, ipa: '/ʊ/',  k: 'v', display: 'oo' }, // book, look, foot, good
-      'oo_long':{ tts: 'ooze', cut: 320, ipa: '/uː/', k: 'v', display: 'oo' }, // school, food, room, tooth
-      'oo_o':  { tts: 'or',   cut: 430, ipa: '/ɔː/', k: 'v', display: 'oo' }, // door, floor
-      'or':    { tts: 'or',   cut: 430, ipa: '/ɔː/', k: 'v' }, // short, horse, lorry
-      'or_er': { tts: 'uh',   cut: 320, ipa: '/ə/',  k: 'v', display: 'or' }, // motorbike
-      'ou':    { tts: 'out',  cut: 300, ipa: '/aʊ/', k: 'v' }, // house, mouse, mouth, trousers
-      'ou_u':  { tts: 'up',   cut: 250, ipa: '/ʌ/',  k: 'v', display: 'ou' }, // young, touch
-      'ou_o':  { tts: 'or',   cut: 430, ipa: '/ɔː/', k: 'v', display: 'ou' }, // four, your
-      'ou_u_long':{ tts: 'you',cut: 420, ipa: '/uː/', k: 'v', display: 'ou' }, // you
-      'ou_ou': { tts: 'oh',   cut: 420, ipa: '/əʊ/', k: 'v', display: 'ou' }, // shoulder
-      'ou_schwa':{ tts: 'uh', cut: 260, ipa: '/ə/',  k: 'v', display: 'ou' }, // colour, favourite
-      'our':   { tts: 'our',  cut: 450, ipa: '/aʊə/',k: 'v' }, // our
-      'ow_au': { tts: 'owl',  cut: 330, ipa: '/aʊ/', k: 'v', display: 'ow' }, // brown, down, how, now
-      'ow_ou': { tts: 'low',  cut: 420, ipa: '/əʊ/', k: 'v', display: 'ow' }, // yellow, rainbow
+      'o':        { tts: 'ox',    speech: 'aw',    ipa: '/ɒ/',  k: 'v' },
+      'o_ou':     { tts: 'oh',    speech: 'oh',    ipa: '/əʊ/', k: 'v', display: 'o' },
+      'o_u':      { tts: 'up',    speech: 'uh',    ipa: '/ʌ/',  k: 'v', display: 'o' },
+      'o_wu':     { tts: 'won',   speech: 'wun',   ipa: '/wʌ/', k: 'v', display: 'o' },
+      'o_long_u': { tts: 'zoo',   speech: 'oo',    ipa: '/uː/', k: 'v', display: 'o' },
+      'o_short_u':{ tts: 'book',  speech: 'uuk',   ipa: '/ʊ/',  k: 'v', display: 'o' },
+      'o_schwa':  { tts: 'uh',    speech: 'uh',    ipa: '/ə/',  k: 'v', display: 'o' },
+      'oa':       { tts: 'oh',    speech: 'oh',    ipa: '/əʊ/', k: 'v' },
+      'oe':       { tts: 'oh',    speech: 'oh',    ipa: '/əʊ/', k: 'v' },
+      'oe_u':     { tts: 'zoo',   speech: 'oo',    ipa: '/uː/', k: 'v', display: 'oe' },
+      'oi':       { tts: 'boy',   speech: 'oy',    ipa: '/ɔɪ/', k: 'v' },
+      'oy':       { tts: 'boy',   speech: 'oy',    ipa: '/ɔɪ/', k: 'v' },
+      'oo_short': { tts: 'book',  speech: 'uuk',   ipa: '/ʊ/',  k: 'v', display: 'oo' },
+      'oo_long':  { tts: 'zoo',   speech: 'oo',    ipa: '/uː/', k: 'v', display: 'oo' },
+      'oo_o':     { tts: 'or',    speech: 'or',    ipa: '/ɔː/', k: 'v', display: 'oo' },
+      'or':       { tts: 'or',    speech: 'or',    ipa: '/ɔː/', k: 'v' },
+      'or_er':    { tts: 'uh',    speech: 'uh',    ipa: '/ə/',  k: 'v', display: 'or' },
+      'ou':       { tts: 'now',   speech: 'ow',    ipa: '/aʊ/', k: 'v' },
+      'ou_u':     { tts: 'up',    speech: 'uh',    ipa: '/ʌ/',  k: 'v', display: 'ou' },
+      'ou_o':     { tts: 'or',    speech: 'or',    ipa: '/ɔː/', k: 'v', display: 'ou' },
+      'ou_u_long':{ tts: 'you',   speech: 'oo',    ipa: '/uː/', k: 'v', display: 'ou' },
+      'ou_ou':    { tts: 'oh',    speech: 'oh',    ipa: '/əʊ/', k: 'v', display: 'ou' },
+      'ou_schwa': { tts: 'uh',    speech: 'uh',    ipa: '/ə/',  k: 'v', display: 'ou' },
+      'our':      { tts: 'our',   speech: 'our',   ipa: '/aʊə/',k: 'v' },
+      'ow_au':    { tts: 'now',   speech: 'ow',    ipa: '/aʊ/', k: 'v', display: 'ow' },
+      'ow_ou':    { tts: 'low',   speech: 'oh',    ipa: '/əʊ/', k: 'v', display: 'ow' },
 
-      'u':     { tts: 'up',   cut: 250, ipa: '/ʌ/',  k: 'v' }, // under, bus, ugly, fun, duck
-      'u_ju':  { tts: 'you',  cut: 420, ipa: '/juː/',k: 'v', display: 'u' }, // computer, music
-      'u_short':{ tts: 'put', cut: 270, ipa: '/ʊ/',  k: 'v', display: 'u' }, // full, pull
-      'ui':    { tts: 'in',   cut: 250, ipa: '/ɪ/',  k: 'v' }, // guitar
-      'ue':    { tts: 'ooze', cut: 320, ipa: '/uː/', k: 'v' }, // blue
-      'ur':    { tts: 'err',  cut: 440, ipa: '/ɜː/', k: 'v' }, // purple, burger, turn
-      'ure':   { tts: 'uh',   cut: 320, ipa: '/ə/',  k: 'v' }, // picture
+      'u':        { tts: 'up',    speech: 'uh',    ipa: '/ʌ/',  k: 'v' },
+      'u_ju':     { tts: 'you',   speech: 'you',   ipa: '/juː/',k: 'v', display: 'u' },
+      'u_short':  { tts: 'put',   speech: 'uuk',   ipa: '/ʊ/',  k: 'v', display: 'u' },
+      'ui':       { tts: 'ih',    speech: 'ih',    ipa: '/ɪ/',  k: 'v' },
+      'ue':       { tts: 'blue',  speech: 'oo',    ipa: '/uː/', k: 'v' },
+      'ur':       { tts: 'her',   speech: 'ur',    ipa: '/ɜː/', k: 'v' },
+      'ure':      { tts: 'uh',    speech: 'uh',    ipa: '/ə/',  k: 'v' },
 
-      'y_ai':  { tts: 'my',   cut: 430, ipa: '/aɪ/', k: 'v', display: 'y' }, // my, fly
-      'y_i':   { tts: 'eat',  cut: 290, ipa: '/i/',  k: 'v', display: 'y' }, // happy, ugly, family, sorry, dirty, lorry, party, body
-      'le':    { tts: 'ull',  cut: 350, ipa: '/l/',  k: 'v' }, // table, purple, apple, crocodile
+      'y_ai':     { tts: 'my',    speech: 'eye',   ipa: '/aɪ/', k: 'v', display: 'y' },
+      'y_i':      { tts: 'bee',   speech: 'ee',    ipa: '/i/',  k: 'v', display: 'y' },
+      'le':       { tts: 'ull',   speech: 'ull',   ipa: '/l/',  k: 'v' },
 
       // Special Abbreviations & Contractions
-      'I':     { tts: 'eye',  cut: 450, ipa: '/aɪ/', k: 'v' },
-      'OK':    { tts: 'okay', cut: 650, ipa: '/əʊˈkeɪ/', k: 'v' },
-      'T':     { tts: 'tee',  cut: 450, ipa: '/tiː/', k: 'v' },
-      'TV':    { tts: 'TV',   cut: 750, ipa: '/ˌtiːˈviː/', k: 'v' },
-      "I'm":   { tts: "I'm",  cut: 500, ipa: '/aɪm/', k: 'v' },
-      "isn't": { tts: "isn't",cut: 550, ipa: '/ˈɪznt/', k: 'v' },
-      '=':     { tts: 'equals',cut: 550, ipa: '=',   k: 's' },
+      'I':        { tts: 'eye',   speech: 'eye',   ipa: '/aɪ/', k: 'v' },
+      'OK':       { tts: 'okay',  speech: 'okay',  ipa: '/əʊˈkeɪ/', k: 'v' },
+      'T':        { tts: 'tee',   speech: 'tee',   ipa: '/tiː/', k: 'v' },
+      'TV':       { tts: 'TV',    speech: 'tee vee', ipa: '/ˌtiːˈviː/', k: 'v' },
+      "I'm":      { tts: "I'm",   speech: "I'm",   ipa: '/aɪm/', k: 'v' },
+      "isn't":    { tts: "isn't", speech: "isn't", ipa: '/ˈɪznt/', k: 'v' },
+      '=':        { tts: 'equals',speech: 'equals',ipa: '=',    k: 's' },
 
       // Silent Letters (Dashed gray tiles)
-      'e_s':   { tts: '',     cut: 0,   ipa: '静音', k: 's', display: 'e' },
-      'gh_s':  { tts: '',     cut: 0,   ipa: '静音', k: 's', display: 'gh' },
-      'l_s':   { tts: '',     cut: 0,   ipa: '静音', k: 's', display: 'l' },
-      't_s':   { tts: '',     cut: 0,   ipa: '静音', k: 's', display: 't' },
-      'a_s':   { tts: '',     cut: 0,   ipa: '静音', k: 's', display: 'a' }
+      'e_s':      { tts: '',      speech: '',      ipa: '静音', k: 's', display: 'e' },
+      'gh_s':     { tts: '',      speech: '',      ipa: '静音', k: 's', display: 'gh' },
+      'l_s':      { tts: '',      speech: '',      ipa: '静音', k: 's', display: 'l' },
+      't_s':      { tts: '',      speech: '',      ipa: '静音', k: 's', display: 't' },
+      'w_s':      { tts: '',      speech: '',      ipa: '静音', k: 's', display: 'w' },
+      'o_s':      { tts: '',      speech: '',      ipa: '静音', k: 's', display: 'o' }
     };
 
     // ==================== 2. COMPLETE 12 UNITS WORD LIST (222 ITEMS FROM UPLOADED IMAGES) ====================
@@ -848,22 +807,17 @@
       console.log(`[KB1 Phonics Verifier] Checked ${KB1_WORDS.length} items across 12 units.`);
     })();
 
-    // ==================== 3. STATE & HIGH-CLARITY HUMAN AUDIO ENGINE ====================
+    // ==================== 3. STATE & FULL-DURATION CLEAR AUDIO ENGINE ====================
     let currentUnit = 'u1';
     let currentMode = 'deck'; // 'deck' | 'grid' | 'game'
     let currentDeckIndex = 0;
     let currentAccent = 'en-GB'; // 'en-GB' (type=1 UK) or 'en-US' (type=2 US)
-    let audioEngine = 'real';    // 'real' (Cambridge/Youdao human stream) | 'tts' (Offline SpeechSynthesis)
-    let phonicsStyle = 'crisp';  // 'crisp' (envelope-trimmed pure phoneme) | 'teach' (full syllable carrier)
-    let blendGapMs = 460;
     let stars = 0;
     let streak = 0;
     let isAutoPlaying = false;
     let activeSequenceId = 0;
     let audioCtx = null;
     let activeHtmlAudio = null;
-    let cutTimer = null;
-    const audioBufferCache = new Map();
 
     // Game State
     let gameSubMode = 'blocks'; // 'blocks' | 'missing'
@@ -883,42 +837,6 @@
       return audioCtx;
     }
 
-    // Synthesize crisp unvoiced consonant burst (/p/, /t/, /k/, /f/, /s/, /ʃ/, /tʃ/, /θ/) using Web Audio API
-    // so unvoiced consonants NEVER sound like "see" or heavy "puh"
-    function playCrispConsonantSynth(type) {
-      try {
-        const ctx = getAudioCtx();
-        if (!ctx) return;
-        const now = ctx.currentTime;
-        const dur = (type === 'p' || type === 't' || type === 'k') ? 0.09 : 0.22;
-        const bufferSize = Math.floor(ctx.sampleRate * dur);
-        const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-        const output = noiseBuffer.getChannelData(0);
-        for (let i = 0; i < bufferSize; i++) {
-          output[i] = Math.random() * 2 - 1;
-        }
-        const whiteNoise = ctx.createBufferSource();
-        whiteNoise.buffer = noiseBuffer;
-
-        const filter = ctx.createBiquadFilter();
-        filter.type = 'bandpass';
-        const freqMap = { p: 800, t: 4200, k: 1800, f: 3200, s: 5800, sh: 2600, ch: 2800, th: 3800, h: 1400 };
-        filter.frequency.setValueAtTime(freqMap[type] || 2500, now);
-        filter.Q.setValueAtTime(type === 's' ? 3.5 : 1.4, now);
-
-        const gain = ctx.createGain();
-        gain.gain.setValueAtTime(0.01, now);
-        gain.gain.linearRampToValueAtTime(0.28, now + 0.015);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
-
-        whiteNoise.connect(filter);
-        filter.connect(gain);
-        gain.connect(ctx.destination);
-        whiteNoise.start(now);
-        whiteNoise.stop(now + dur);
-      } catch (e) {}
-    }
-
     function playToneEffect(type) {
       try {
         const ctx = getAudioCtx();
@@ -929,13 +847,13 @@
           const gain = ctx.createGain();
           osc.type = 'sine';
           osc.frequency.setValueAtTime(420, now);
-          osc.frequency.exponentialRampToValueAtTime(280, now + 0.12);
+          osc.frequency.exponentialRampToValueAtTime(280, now + 0.14);
           gain.gain.setValueAtTime(0.08, now);
-          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.13);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
           osc.connect(gain);
           gain.connect(ctx.destination);
           osc.start(now);
-          osc.stop(now + 0.14);
+          osc.stop(now + 0.16);
         } else if (type === 'success') {
           [523.25, 659.25, 783.99, 1046.5].forEach((f, idx) => {
             const osc = ctx.createOscillator();
@@ -966,10 +884,6 @@
     }
 
     function stopAllSpeech() {
-      if (cutTimer) {
-        clearTimeout(cutTimer);
-        cutTimer = null;
-      }
       if (activeHtmlAudio) {
         try {
           activeHtmlAudio.pause();
@@ -982,7 +896,7 @@
       }
     }
 
-    function selectBestOfflineVoice(lang) {
+    function selectBestVoice(lang) {
       if (!('speechSynthesis' in window)) return null;
       const voices = window.speechSynthesis.getVoices() || [];
       if (!voices.length) return null;
@@ -999,7 +913,8 @@
              voices[0];
     }
 
-    function speakOfflineTTS(text, rate = 0.9, maxDurationMs = 0) {
+    // Full-duration, unclipped SpeechSynthesis pronunciation
+    function speakClearTTS(text, rate = 0.82) {
       return new Promise(resolve => {
         if (!('speechSynthesis' in window) || !text) {
           resolve();
@@ -1010,14 +925,13 @@
         u.lang = currentAccent;
         u.rate = rate;
         u.pitch = 1.02;
-        const bestVoice = selectBestOfflineVoice(currentAccent);
+        const bestVoice = selectBestVoice(currentAccent);
         if (bestVoice) u.voice = bestVoice;
 
         let settled = false;
         const done = () => {
           if (!settled) {
             settled = true;
-            if (cutTimer) { clearTimeout(cutTimer); cutTimer = null; }
             resolve();
           }
         };
@@ -1025,30 +939,21 @@
         u.onerror = done;
         window.speechSynthesis.speak(u);
 
-        const timeoutMs = maxDurationMs > 0 ? maxDurationMs : Math.max(1400, text.length * 160);
-        cutTimer = setTimeout(() => {
-          if (maxDurationMs > 0 && 'speechSynthesis' in window) {
-            window.speechSynthesis.cancel();
-          }
-          done();
-        }, timeoutMs);
+        // Safety fallback in case browser onend doesn't fire
+        setTimeout(done, Math.max(2200, text.length * 220));
       });
     }
 
-    // Core Real-Human Dictionary Audio Stream Player (with envelope trimming for crisp phonics)
-    function playHumanDictAudio(queryText, rate = 1.0, maxDurationMs = 0) {
+    // Full-length Dictionary Audio Player (NO millisecond clipping — plays every sound completely and clearly)
+    function playFullClearAudio(queryText, fallbackSpeechText = null, rate = 0.9) {
       return new Promise(resolve => {
         if (!queryText) {
           resolve();
           return;
         }
-        if (audioEngine === 'tts') {
-          speakOfflineTTS(queryText, rate, maxDurationMs).then(resolve);
-          return;
-        }
-
         const typeParam = currentAccent === 'en-GB' ? 1 : 2;
         const cleanQuery = queryText.replace(/=/g, ' equals ');
+        const speechText = fallbackSpeechText || cleanQuery;
         const url = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(cleanQuery)}&type=${typeParam}`;
 
         stopAllSpeech();
@@ -1060,30 +965,19 @@
         const finish = () => {
           if (!settled) {
             settled = true;
-            if (cutTimer) { clearTimeout(cutTimer); cutTimer = null; }
             resolve();
           }
         };
 
-        // Fallback timer if network is offline or slow (>900ms)
         const loadTimeout = setTimeout(() => {
           if (!settled && audio.readyState < 2) {
             try { audio.pause(); } catch (e) {}
-            speakOfflineTTS(cleanQuery, rate, maxDurationMs).then(finish);
+            speakClearTTS(speechText, rate).then(finish);
           }
-        }, 900);
+        }, 1000);
 
         audio.onplaying = () => {
           clearTimeout(loadTimeout);
-          if (maxDurationMs > 0) {
-            cutTimer = setTimeout(() => {
-              try {
-                audio.pause();
-                audio.currentTime = 0;
-              } catch (e) {}
-              finish();
-            }, maxDurationMs);
-          }
         };
 
         audio.onended = () => {
@@ -1093,41 +987,38 @@
 
         audio.onerror = () => {
           clearTimeout(loadTimeout);
-          speakOfflineTTS(cleanQuery, rate, maxDurationMs).then(finish);
+          speakClearTTS(speechText, rate).then(finish);
         };
 
         audio.play().catch(() => {
           clearTimeout(loadTimeout);
-          speakOfflineTTS(cleanQuery, rate, maxDurationMs).then(finish);
+          speakClearTTS(speechText, rate).then(finish);
         });
       });
     }
 
-    // Play a single Phonics Block (Strictly speaks its context phoneme/syllable, NEVER letter names!)
+    // Play a single Phonics Block: Full length, clear, deliberate teaching speed (rate 0.82)
     async function playPhonicsToken(tokenKey, domEl = null) {
-      const info = PHONEME_DICT[tokenKey] || { tts: tokenKey, cut: 350, ipa: `/${tokenKey}/`, k: 'c' };
+      const info = PHONEME_DICT[tokenKey] || { tts: tokenKey, speech: tokenKey, ipa: `/${tokenKey}/`, k: 'c' };
       if (domEl) {
         domEl.classList.add('ph-active');
-        setTimeout(() => domEl.classList.remove('ph-active'), 440);
       }
 
       // Silent Magic Letter
       if (info.k === 's' && !info.tts) {
         playToneEffect('silent');
-        return new Promise(r => setTimeout(r, 220));
+        await new Promise(r => setTimeout(r, 320));
+        if (domEl) domEl.classList.remove('ph-active');
+        return;
       }
 
-      // Layer Web Audio Formant Burst for unvoiced consonants in crisp mode
-      if (info.synth && phonicsStyle === 'crisp') {
-        playCrispConsonantSynth(info.synth);
+      await playFullClearAudio(info.tts, info.speech || info.tts, 0.84);
+      if (domEl) {
+        domEl.classList.remove('ph-active');
       }
-
-      // Determine envelope cut duration so plosives (/p/, /b/, /t/, /d/, /k/, /g/) don't drag out an "uh"
-      const cutMs = phonicsStyle === 'crisp' ? (info.cut || 340) : 0;
-      await playHumanDictAudio(info.tts, 0.94, cutMs);
     }
 
-    // Slow Decomposed Blending: Speak each phoneme tile in sequence -> pause -> speak full word clearly
+    // Slow Decomposed Blending: Speak each phoneme block completely -> pause 350ms -> speak full word clearly
     async function playWordSlowBlend(wordObj, containerId) {
       activeSequenceId++;
       const seqId = activeSequenceId;
@@ -1143,32 +1034,24 @@
         const token = wordObj.b[i];
         if (token === '.' || token === '-') continue;
         if (token === ' ') {
-          await new Promise(r => setTimeout(r, 150));
+          await new Promise(r => setTimeout(r, 250));
           continue;
         }
         const currentEl = tileEls[tilePointer++];
         if (currentEl) currentEl.classList.add('ph-active');
         await playPhonicsToken(token, null);
         if (currentEl) currentEl.classList.remove('ph-active');
-        await new Promise(r => setTimeout(r, Math.max(120, blendGapMs - 240)));
+        if (seqId !== activeSequenceId) return;
+        await new Promise(r => setTimeout(r, 350));
       }
 
       if (seqId !== activeSequenceId) return;
-      await new Promise(r => setTimeout(r, 200));
+      await new Promise(r => setTimeout(r, 420));
 
-      // Glow all tiles together and speak the complete word naturally
+      // Glow all tiles together and read the full word clearly
       tileEls.forEach(el => el.classList.add('ph-word-glow'));
       const cleanWord = wordObj.w.replace('=is not', ', is not');
-      const doubleRead = document.getElementById('doubleReadToggle')?.checked;
-      if (doubleRead) {
-        await playHumanDictAudio(cleanWord, 0.85, 0);
-        if (seqId === activeSequenceId) {
-          await new Promise(r => setTimeout(r, 220));
-          await playHumanDictAudio(cleanWord, 1.0, 0);
-        }
-      } else {
-        await playHumanDictAudio(cleanWord, 0.96, 0);
-      }
+      await playFullClearAudio(cleanWord, cleanWord, 0.92);
       tileEls.forEach(el => el.classList.remove('ph-word-glow'));
     }
 
@@ -1179,14 +1062,14 @@
       const tileEls = container ? Array.from(container.querySelectorAll('[data-ph-idx]')) : [];
       tileEls.forEach(el => el.classList.add('ph-word-glow'));
       const cleanWord = wordStr.replace('=is not', ', is not');
-      await playHumanDictAudio(cleanWord, 0.98, 0);
+      await playFullClearAudio(cleanWord, cleanWord, 0.94);
       tileEls.forEach(el => el.classList.remove('ph-word-glow'));
     }
 
     async function playExampleSentence(sentenceStr) {
       activeSequenceId++;
       stopAllSpeech();
-      await playHumanDictAudio(sentenceStr, 0.94, 0);
+      await playFullClearAudio(sentenceStr, sentenceStr, 0.92);
     }
 
     // ==================== 4. UI RENDERING (DECK, GRID, GAME) ====================
@@ -1703,52 +1586,6 @@
       if (list[currentDeckIndex]) {
         playNormalWord(list[currentDeckIndex].w, 'bigCardBlocks');
       }
-    }
-
-    function setAudioEngine(engine) {
-      audioEngine = engine;
-      document.getElementById('engineRealBtn').className = `bauhaus-btn py-2 px-3 rounded-xl font-black text-xs sm:text-sm ${
-        engine === 'real' ? 'bg-emerald-400 text-slate-900' : 'bg-white text-slate-700'
-      }`;
-      document.getElementById('engineTtsBtn').className = `bauhaus-btn py-2 px-3 rounded-xl font-black text-xs sm:text-sm ${
-        engine === 'tts' ? 'bg-emerald-400 text-slate-900' : 'bg-white text-slate-700'
-      }`;
-      document.getElementById('audioStatusBadge').textContent = engine === 'real'
-        ? '✨ 真人原声流 + 纯正音素已激活'
-        : '🤖 离线神经网络语音已启用';
-    }
-
-    function setPhonicsStyle(style) {
-      phonicsStyle = style;
-      document.getElementById('phStyleCrispBtn').className = `bauhaus-btn py-2 px-3 rounded-xl font-black text-xs sm:text-sm ${
-        style === 'crisp' ? 'bg-amber-400 text-slate-900' : 'bg-white text-slate-700'
-      }`;
-      document.getElementById('phStyleTeachBtn').className = `bauhaus-btn py-2 px-3 rounded-xl font-black text-xs sm:text-sm ${
-        style === 'teach' ? 'bg-amber-400 text-slate-900' : 'bg-white text-slate-700'
-      }`;
-    }
-
-    function updateBlendGap(val) {
-      blendGapMs = parseInt(val, 10);
-      document.getElementById('blendGapLabel').textContent = `${blendGapMs}ms`;
-    }
-
-    function testPhonicsSample() {
-      const sample = KB1_WORDS.find(x => x.w === 'train') || KB1_WORDS[0];
-      playWordSlowBlend(sample, 'bigCardBlocks');
-    }
-
-    function unlockAndTestAudio() {
-      getAudioCtx();
-      playNormalWord('Hello! Let us read together.');
-    }
-
-    function toggleHelpModal(show) {
-      document.getElementById('helpModal').classList.toggle('hidden', !show);
-    }
-
-    function toggleVoiceModal(show) {
-      document.getElementById('voiceModal').classList.toggle('hidden', !show);
     }
 
     // Touch Swipe Support on Big Flashcard Stage
